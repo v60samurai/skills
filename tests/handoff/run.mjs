@@ -11,15 +11,20 @@
 // out of the result. HANDOFF_LIVE=1 skips the link and tests whatever /handoff
 // the current Claude profile resolves (set CLAUDE_CONFIG_DIR to pick a
 // profile). If that profile's hooks write files into the project, name them
-// with HANDOFF_IGNORE, a regex over relative paths.
+// with HANDOFF_IGNORE, a regex over relative paths. HANDOFF_SKILL points the
+// link at another copy of the skill, such as an older revision to compare.
+//
+// A case with a directory in repos/ runs inside a Git repository: the
+// directory is committed as the baseline, and repos/<case>.dirty/, if present,
+// is copied on top and left uncommitted.
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, symlinkSync, readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, symlinkSync, readFileSync, readdirSync, writeFileSync, existsSync, cpSync, appendFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const skill = join(here, '..', '..', 'skills', 'handoff')
+const skill = process.env.HANDOFF_SKILL || join(here, '..', '..', 'skills', 'handoff')
 const checks = JSON.parse(readFileSync(join(here, 'checks.json'), 'utf8'))
 const outDir = process.env.HANDOFF_OUT || mkdtempSync(join(tmpdir(), 'handoff-out-'))
 const only = process.argv.slice(2)
@@ -42,8 +47,22 @@ function sections(text) {
   })
 }
 
+const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8' })
+const gitState = (cwd) => `${git(cwd, 'rev-parse', 'HEAD')}${git(cwd, 'branch', '--show-current')}${git(cwd, 'status', '--porcelain')}${git(cwd, 'stash', 'list')}`
+
 function run(name, source) {
   const cwd = mkdtempSync(join(tmpdir(), 'handoff-case-'))
+  const repo = join(here, 'repos', name)
+  let before
+  if (existsSync(repo)) {
+    cpSync(repo, cwd, { recursive: true, dereference: true })
+    git(cwd, 'init', '-q', '-b', 'main')
+    appendFileSync(join(cwd, '.git', 'info', 'exclude'), '.claude/\n')
+    git(cwd, 'add', '-A')
+    git(cwd, '-c', 'user.name=fixture', '-c', 'user.email=fixture@example.com', 'commit', '-q', '-m', 'baseline')
+    if (existsSync(`${repo}.dirty`)) cpSync(`${repo}.dirty`, cwd, { recursive: true })
+    before = gitState(cwd)
+  }
   if (!process.env.HANDOFF_LIVE) {
     mkdirSync(join(cwd, '.claude', 'skills'), { recursive: true })
     symlinkSync(skill, join(cwd, '.claude', 'skills', 'handoff'))
@@ -58,7 +77,7 @@ function run(name, source) {
     out = `${e.stdout || ''}\n[claude exited ${e.status}] ${e.stderr || e.message}`
   }
   writeFileSync(join(outDir, `${name}.out.md`), out)
-  return { out, cwd, written: walk(cwd).map((f) => relative(cwd, f)).filter((f) => !ignore || !ignore.test(f)) }
+  return { out, cwd, gitUnchanged: before === undefined || before === gitState(cwd), written: walk(cwd).map((f) => relative(cwd, f)).filter((f) => !ignore || !ignore.test(f)) }
 }
 
 function apply(c, r, source) {
@@ -68,6 +87,9 @@ function apply(c, r, source) {
   if (c.absent) return !re(c.absent).test(r.out)
   if (c.inSection) return re(c.inSection[1]).test(within(c.inSection[0]))
   if (c.notInSection) return !re(c.notInSection[1]).test(within(c.notInSection[0]))
+  if (c.minCount) return (r.out.match(new RegExp(c.minCount[0], 'gim')) || []).length >= c.minCount[1]
+  if (c.shorterThan) return existsSync(join(outDir, `${c.shorterThan}.out.md`)) && r.out.length < readFileSync(join(outDir, `${c.shorterThan}.out.md`), 'utf8').length
+  if (c.git === 'unchanged') return r.gitUnchanged
   if (c.maxCount) return (r.out.match(new RegExp(c.maxCount[0], 'gi')) || []).length <= c.maxCount[1]
   if (c.maxRatio) return r.out.length / source.length <= c.maxRatio
   if (c.maxChars) return r.out.length <= c.maxChars
