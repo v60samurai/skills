@@ -1,0 +1,661 @@
+{
+  "repository": "v60samurai/skills",
+  "note": "Every first-party skill appears here: as source under skills/, or as an entry that says where it lives and why it is not copied. Third-party skills are not listed.",
+  "statuses": {
+    "portable": "works standalone",
+    "system-coupled": "depends on a larger system and stays with it",
+    "adapted": "derived from someone else's skill; credited, not republished",
+    "retired": "no longer in use; history only"
+  },
+  "skills": [
+    {
+      "name": "handoff",
+      "description": "Packages messy source material into a concise Markdown evidence packet that keeps each statement's epistemic status.",
+      "status": "portable",
+      "publish_mode": "source",
+      "canonical_owner": "skills/handoff",
+      "invocation": "/handoff (explicit only)",
+      "reason": "Written for this repository. Standalone."
+    },
+    {
+      "name": "prompt-compile",
+      "description": "Define, do, verify: compile a task brief, execute it, verify against it.",
+      "status": "portable",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "https://github.com/v60samurai/agent-skills",
+      "invocation": "by name (explicit only)",
+      "reason": "Already published in its own public repository with its gate hook. A second copy would fork it.",
+      "dependencies": [
+        "optional prompt-compile-gate hook"
+      ]
+    },
+    {
+      "name": "stacksmith",
+      "description": "Audits a repo's dependencies, recommends the smallest right stack, and applies changes after approval.",
+      "status": "portable",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "https://github.com/v60samurai/stacksmith",
+      "invocation": "\"run Stacksmith\"",
+      "reason": "Already published in its own public repository with an installer."
+    },
+    {
+      "name": "explain",
+      "description": "Builds a correct mental model of a concept, system or codebase, then explains it in the clearest representation.",
+      "status": "portable",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "https://github.com/v60samurai/claritymaxx",
+      "invocation": "/claritymaxx:explain",
+      "reason": "Already published as the claritymaxx plugin."
+    },
+    {
+      "name": "shipwright",
+      "description": "Turns two prompts into production-grade build documents for a product.",
+      "status": "portable",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "https://github.com/v60samurai/shipwright",
+      "invocation": "/shipwright",
+      "reason": "Already published in its own public plugin repository."
+    },
+    {
+      "name": "qc-questions",
+      "description": "Quality-checks multiple-choice assessment questions with blind-solve subagents and difficulty estimation.",
+      "status": "portable",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "https://github.com/v60samurai/qc-questions",
+      "invocation": "/qc-questions",
+      "reason": "Already published in its own public plugin repository."
+    },
+    {
+      "name": "brand-guide-visualizer",
+      "description": "Generates a single-file HTML visualizer from a brand-guide.md.",
+      "status": "portable",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "https://github.com/v60samurai/builder-os",
+      "invocation": "\"visualize the brand guide\"",
+      "reason": "Ships in the public Builder OS plugin."
+    },
+    {
+      "name": "prd-journeys",
+      "description": "Generates user journeys, Mermaid flows and a screen inventory from a PRD.",
+      "status": "portable",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "https://github.com/v60samurai/builder-os",
+      "invocation": "\"map journeys from this PRD\"",
+      "reason": "Ships in the public Builder OS plugin."
+    },
+    {
+      "name": "manage-brand",
+      "description": "Configures brand voice, tone, style rules and messaging pillars for a project.",
+      "status": "portable",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "https://github.com/v60samurai/baazigar-claude-code-setup",
+      "invocation": "/manage-brand",
+      "reason": "Ships in a public setup repository and reads a config path that setup owns."
+    },
+    {
+      "name": "task-contract",
+      "description": "Reads an underspecified request as five fields (Task, Done, Constraints, Verify, Stop) before work starts.",
+      "status": "portable",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "loaded by the model when a request has no clear finish line",
+      "reason": "Portable, but paired with an always-on rule and install tests in dotfiles. Moving its canonical source is a separate change."
+    },
+    {
+      "name": "browser-capture-fallbacks",
+      "description": "Fallback chain and known quirks for viewport-exact screenshots and logged-out page capture.",
+      "status": "portable",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "loaded by the model when browser capture misbehaves",
+      "reason": "Portable. Held back pending a content and licence review: the file declares CC BY 4.0, which differs from this repository's MIT."
+    },
+    {
+      "name": "product-gameplan",
+      "description": "Asks clarifying questions, then generates a phased idea-to-shipped gameplan with a tracker.",
+      "status": "portable",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "/product-gameplan",
+      "reason": "Portable. Lives only in a private backup repository; held back until its canonical home is chosen."
+    },
+    {
+      "name": "jev-atlas",
+      "description": "Maps where semantic-judgment models belong in a codebase, tests the strongest candidates, then implements them.",
+      "status": "portable",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "\"run Jev Atlas\"",
+      "reason": "Has its own dedicated repository with an installer. That repository is private.",
+      "dependencies": [
+        "TypeSafe Jev API (third party)"
+      ]
+    },
+    {
+      "name": "my-voice",
+      "description": "Rewrites text into the author's own writing voice.",
+      "status": "portable",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "\"convert this to my voice\"",
+      "reason": "A personal voice profile, not a general tool."
+    },
+    {
+      "name": "build-flow",
+      "description": "Product lifecycle from a problem or a handoff to an accepted milestone.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "/build-flow",
+      "reason": "Depends on the dotfiles machine layer, its scripts, contracts and upstream manifest.",
+      "dependencies": [
+        "Build Flow"
+      ]
+    },
+    {
+      "name": "ai-build-flow-doctor",
+      "description": "Read-only health check of the Build Flow's upstreams.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "/ai-build-flow-doctor",
+      "reason": "Only meaningful with the Build Flow manifest and CLI.",
+      "dependencies": [
+        "Build Flow"
+      ]
+    },
+    {
+      "name": "retro",
+      "description": "Reads one finished session and prints RETRO blocks: what happened, the evidence, the root cause. Writes nothing.",
+      "status": "adapted",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "/retro (explicit only)",
+      "reason": "Adapted from the retro skill in mattpocock/skills (MIT) and rewritten around the Build Flow doctor. Not standalone, and not original enough to publish as first-party.",
+      "dependencies": [
+        "Build Flow"
+      ],
+      "upstream": "https://github.com/mattpocock/skills"
+    },
+    {
+      "name": "blueprint-writer",
+      "description": "Drafts a Blueprint (engineering spec, technical reference, build plan) from a locked PRD.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "https://github.com/v60samurai/builder-os",
+      "invocation": "\"write the blueprint\"",
+      "reason": "Part of the Builder OS plugin and its templates.",
+      "dependencies": [
+        "Builder OS"
+      ]
+    },
+    {
+      "name": "blueprint-gate",
+      "description": "Pass/fail gate check on a filled Blueprint before build and before ship.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "https://github.com/v60samurai/builder-os",
+      "invocation": "\"gate the blueprint\"",
+      "reason": "Part of the Builder OS plugin and its templates.",
+      "dependencies": [
+        "Builder OS"
+      ]
+    },
+    {
+      "name": "blueprint-runner",
+      "description": "Walks a project through the Blueprint build plan, enforcing done-checks and gates.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "https://github.com/v60samurai/builder-os",
+      "invocation": "\"run the blueprint\"",
+      "reason": "Part of the Builder OS plugin and its templates.",
+      "dependencies": [
+        "Builder OS"
+      ]
+    },
+    {
+      "name": "prd-gate",
+      "description": "Pass/fail gate check on a Builder OS PRD before delivery starts.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "https://github.com/v60samurai/builder-os",
+      "invocation": "\"gate this PRD\"",
+      "reason": "Part of the Builder OS plugin and its templates.",
+      "dependencies": [
+        "Builder OS"
+      ]
+    },
+    {
+      "name": "stitch-prompt",
+      "description": "Turns a journeys screen inventory into a ready-to-paste Google Stitch prompt.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "https://github.com/v60samurai/builder-os",
+      "invocation": "\"stitch prompt\"",
+      "reason": "Part of the Builder OS plugin and its templates.",
+      "dependencies": [
+        "Builder OS"
+      ]
+    },
+    {
+      "name": "builder-os",
+      "description": "Loads the Builder OS manifesto for product decisions.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "loaded by the model on product decisions",
+      "reason": "A thin entry point into a personal Builder OS manifesto and routing table. Not standalone.",
+      "dependencies": [
+        "Builder OS manifesto"
+      ]
+    },
+    {
+      "name": "brainstorm",
+      "description": "Enters Builder OS BRAINSTORM mode.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "/brainstorm",
+      "reason": "A thin entry point into a personal Builder OS manifesto and routing table. Not standalone.",
+      "dependencies": [
+        "Builder OS manifesto"
+      ]
+    },
+    {
+      "name": "discover",
+      "description": "Enters Builder OS DISCOVER mode.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "/discover",
+      "reason": "A thin entry point into a personal Builder OS manifesto and routing table. Not standalone.",
+      "dependencies": [
+        "Builder OS manifesto"
+      ]
+    },
+    {
+      "name": "define",
+      "description": "Enters Builder OS DEFINE mode.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "/define",
+      "reason": "A thin entry point into a personal Builder OS manifesto and routing table. Not standalone.",
+      "dependencies": [
+        "Builder OS manifesto"
+      ]
+    },
+    {
+      "name": "deliver",
+      "description": "Enters Builder OS DELIVER mode.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "/deliver",
+      "reason": "A thin entry point into a personal Builder OS manifesto and routing table. Not standalone.",
+      "dependencies": [
+        "Builder OS manifesto"
+      ]
+    },
+    {
+      "name": "learn",
+      "description": "Enters Builder OS LEARN mode.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "/learn",
+      "reason": "A thin entry point into a personal Builder OS manifesto and routing table. Not standalone.",
+      "dependencies": [
+        "Builder OS manifesto"
+      ]
+    },
+    {
+      "name": "icp",
+      "description": "Defines or pressure-tests an ideal customer profile to the Builder OS gate.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "/icp",
+      "reason": "A thin entry point into a personal Builder OS manifesto and routing table. Not standalone.",
+      "dependencies": [
+        "Builder OS manifesto"
+      ]
+    },
+    {
+      "name": "prd",
+      "description": "Gated Builder OS PRD generator.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "/prd",
+      "reason": "A thin entry point into a personal Builder OS manifesto and routing table. Not standalone.",
+      "dependencies": [
+        "Builder OS manifesto"
+      ]
+    },
+    {
+      "name": "spec",
+      "description": "Gated feature spec from a PRD.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "/spec",
+      "reason": "A thin entry point into a personal Builder OS manifesto and routing table. Not standalone.",
+      "dependencies": [
+        "Builder OS manifesto"
+      ]
+    },
+    {
+      "name": "research-brief",
+      "description": "Gated research brief generator.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "/research-brief",
+      "reason": "A thin entry point into a personal Builder OS manifesto and routing table. Not standalone.",
+      "dependencies": [
+        "Builder OS manifesto"
+      ]
+    },
+    {
+      "name": "tripwire-audit",
+      "description": "Checks current work against the Builder OS tripwires.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "/tripwire-audit",
+      "reason": "A thin entry point into a personal Builder OS manifesto and routing table. Not standalone.",
+      "dependencies": [
+        "Builder OS manifesto"
+      ]
+    },
+    {
+      "name": "pm-retrieve",
+      "description": "Routes a question to its system of record.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "/pm-retrieve",
+      "reason": "A thin entry point into a personal Builder OS manifesto and routing table. Not standalone.",
+      "dependencies": [
+        "Builder OS manifesto"
+      ]
+    },
+    {
+      "name": "design-stack",
+      "description": "Production-design orchestrator that classifies a UI task and routes it to specialist skills.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "\"use design skill stack\"",
+      "reason": "Has its own repository and is useless without the third-party specialist skills it routes to.",
+      "dependencies": [
+        "third-party design skills"
+      ]
+    },
+    {
+      "name": "brainstorm-stack",
+      "description": "Reasoning orchestrator that routes a problem to framing, diagnosis, divergence, decision or challenge.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "\"use brainstorm-stack\"",
+      "reason": "Has its own repository, which is not licensed for redistribution, and routes to third-party skills.",
+      "dependencies": [
+        "third-party reasoning skills"
+      ]
+    },
+    {
+      "name": "eval-stack",
+      "description": "Designs and runs task-specific evals as a contract executed by an eval engine.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "local repository, unpublished",
+      "invocation": "\"eval-stack\"",
+      "reason": "A front end for a CLI in the same unpublished repository."
+    },
+    {
+      "name": "lockwork",
+      "description": "Routes a goal to a lane and playbook, records evidence, and stops at human gates.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "\"Lockwork mode\"",
+      "reason": "Part of a private build system."
+    },
+    {
+      "name": "pstack-bridge",
+      "description": "Refreshes a personal PStack bridge and runs its doctor.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "/pstack-bridge",
+      "reason": "Machine-specific glue for a private tool."
+    },
+    {
+      "name": "coach",
+      "description": "Product coaching jobs.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "/coach",
+      "reason": "Tied to a private coaching repository and its reference material."
+    },
+    {
+      "name": "coach-check",
+      "description": "Adversarial check of mentor feedback.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "/coach-check",
+      "reason": "Tied to a private coaching repository and its reference material."
+    },
+    {
+      "name": "coach-review",
+      "description": "Multi-pass case-study review.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "/coach-review",
+      "reason": "Tied to a private coaching repository and its reference material."
+    },
+    {
+      "name": "project-bootstrap",
+      "description": "Bootstraps a project for an automation bot.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "bot-invoked",
+      "reason": "A bot skill inside a private automation system."
+    },
+    {
+      "name": "engineering-objective",
+      "description": "Forms an engineering objective from a product decision.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "bot-invoked",
+      "reason": "A bot skill inside a private automation system."
+    },
+    {
+      "name": "proof-review",
+      "description": "Reviews a returned proof package.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "bot-invoked",
+      "reason": "A bot skill inside a private automation system."
+    },
+    {
+      "name": "status-and-attention",
+      "description": "Reports status and what needs attention.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "bot-invoked",
+      "reason": "A bot skill inside a private automation system."
+    },
+    {
+      "name": "linkedin-ghostwriter",
+      "description": "Drafts posts in a personal voice from a private story bank.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "/linkedin-ghostwriter",
+      "reason": "Part of a personal content system that ships private voice and state files."
+    },
+    {
+      "name": "hook-lab",
+      "description": "Works on post openings.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "/hook-lab",
+      "reason": "Part of a personal content system that ships private voice and state files."
+    },
+    {
+      "name": "carousel-creator",
+      "description": "Builds post carousels.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "/carousel-creator",
+      "reason": "Part of a personal content system that ships private voice and state files."
+    },
+    {
+      "name": "content-tracker",
+      "description": "Tracks posting history.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "/content-tracker",
+      "reason": "Part of a personal content system that ships private voice and state files."
+    },
+    {
+      "name": "engagement-engine",
+      "description": "Plans engagement.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "/engagement-engine",
+      "reason": "Part of a personal content system that ships private voice and state files."
+    },
+    {
+      "name": "screenshot-processor",
+      "description": "Crops screenshots for posts.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "/screenshot-processor",
+      "reason": "Part of a personal content system that ships private voice and state files."
+    },
+    {
+      "name": "project-setup",
+      "description": "Finishes setup of a freshly scaffolded project on the author's machines.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "/project-setup",
+      "reason": "Machine-specific and environment-specific."
+    },
+    {
+      "name": "erd-writer",
+      "description": "Earlier Builder OS stage skill.",
+      "status": "retired",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "https://github.com/v60samurai/builder-os",
+      "invocation": "none",
+      "reason": "Retired and replaced by the blueprint skills."
+    },
+    {
+      "name": "erd-gate",
+      "description": "Earlier Builder OS stage skill.",
+      "status": "retired",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "https://github.com/v60samurai/builder-os",
+      "invocation": "none",
+      "reason": "Retired and replaced by the blueprint skills."
+    },
+    {
+      "name": "session-runner",
+      "description": "Earlier Builder OS stage skill.",
+      "status": "retired",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "https://github.com/v60samurai/builder-os",
+      "invocation": "none",
+      "reason": "Retired and replaced by the blueprint skills."
+    },
+    {
+      "name": "pstack-brief",
+      "description": "Earlier engineering entry skill.",
+      "status": "retired",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "none",
+      "reason": "Retired. Git history only."
+    },
+    {
+      "name": "orca-loop",
+      "description": "Earlier engineering entry skill.",
+      "status": "retired",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "none",
+      "reason": "Retired. Git history only."
+    },
+    {
+      "name": "pstack-router",
+      "description": "Earlier engineering entry skill.",
+      "status": "retired",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "v60samurai/dotfiles (private)",
+      "invocation": "none",
+      "reason": "Retired. Git history only."
+    },
+    {
+      "name": "config-builder",
+      "description": "Phase document of an assessment-question pipeline.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "none",
+      "reason": "Pipeline phase documents without skill frontmatter, specific to one product."
+    },
+    {
+      "name": "mcq-generator",
+      "description": "Phase document of an assessment-question pipeline.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "none",
+      "reason": "Pipeline phase documents without skill frontmatter, specific to one product."
+    },
+    {
+      "name": "reviewer",
+      "description": "Phase document of an assessment-question pipeline.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "none",
+      "reason": "Pipeline phase documents without skill frontmatter, specific to one product."
+    },
+    {
+      "name": "validator",
+      "description": "Phase document of an assessment-question pipeline.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "none",
+      "reason": "Pipeline phase documents without skill frontmatter, specific to one product."
+    },
+    {
+      "name": "finalizer",
+      "description": "Phase document of an assessment-question pipeline.",
+      "status": "system-coupled",
+      "publish_mode": "catalog-only",
+      "canonical_owner": "private repository",
+      "invocation": "none",
+      "reason": "Pipeline phase documents without skill frontmatter, specific to one product."
+    }
+  ]
+}

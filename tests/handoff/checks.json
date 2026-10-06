@@ -1,0 +1,129 @@
+{
+  "all": [
+    { "absent": "^#+ .*(tickets?|milestones?|implementation plan|execution plan|next steps|action items|recommendations?)\\b", "why": "no planning sections" },
+    { "absent": "\\bDQ-?\\d+", "why": "no decision-queue ids" },
+    { "absent": "EXECUTION\\.md|PRODUCT\\.md|TECH\\.md|DESIGN\\.md", "why": "no Build Flow documents" },
+    { "has": "^# Handoff", "why": "handoff title" }
+  ],
+  "01-repetitive-meeting": [
+    { "has": "14 days", "why": "exact window kept" },
+    { "has": "delivery", "why": "from delivery, not order date" },
+    { "has": "original payment method", "why": "refund rule kept" },
+    { "has": "30 days", "why": "stale page observation kept" },
+    { "notInSection": ["requirement", "30 days|returns page"], "why": "observation is not a requirement" },
+    { "maxCount": ["14 days from delivery", 2], "why": "repeated fact stated once or twice at most" },
+    { "maxRatio": 1.0, "why": "no longer than a short source, headings included" },
+    { "writes": "none" }
+  ],
+  "02-proposal-vs-decision": [
+    { "inSection": ["propos|not yet approved", "night"], "why": "nightly run is a proposal" },
+    { "inSection": ["propos|not yet approved", "hourly"], "why": "hourly top-100 is a proposal" },
+    { "notInSection": ["requirement|approved decision", "night|hourly"], "why": "proposals not promoted" },
+    { "inSection": ["approved decision|requirement", "audit"], "why": "audit row is approved" },
+    { "has": "rate limit", "why": "dependency or open question on rate limits kept" },
+    { "has": "Sunday 02:00 UTC", "why": "exact schedule kept" },
+    { "writes": "none" }
+  ],
+  "03-disagreement": [
+    { "has": "Ana", "why": "position attributed" },
+    { "has": "Tom", "why": "position attributed" },
+    { "has": "22%", "why": "exact value" },
+    { "has": "38%", "why": "exact value" },
+    { "has": "41%", "why": "exact value" },
+    { "inSection": ["open question|propos|not yet approved", "dismiss|persist"], "why": "conflict stays unresolved, both positions listed" },
+    { "notInSection": ["approved decision|requirement", "dismiss|persist"], "why": "no side picked" },
+    { "has": "Jo", "why": "absent owner noted" },
+    { "writes": "none" }
+  ],
+  "04-followup-delta": [
+    { "has": "^#+ Relationship to previous handoff", "why": "delta section" },
+    { "has": "H001", "why": "names the earlier handoff" },
+    { "inSection": ["relationship", "tooltip"], "why": "tooltip is an addition" },
+    { "inSection": ["relationship", "1500"], "why": "conflict listed" },
+    { "inSection": ["relationship", "1000"], "why": "earlier position kept beside the new one" },
+    { "notInSection": ["approved decision", "1500"], "why": "later claim does not override" },
+    { "has": "mobile", "why": "mobile clarification kept" },
+    { "writes": "none" }
+  ],
+  "05-api-and-thresholds": [
+    { "has": "POST /v2/quotes", "why": "endpoint exact" },
+    { "has": "\"customer_tier\": \"gold\"", "why": "payload verbatim" },
+    { "has": "quantity_exceeds_limit", "why": "error text exact" },
+    { "has": "422", "why": "status exact" },
+    { "has": "900", "why": "expiry exact" },
+    { "has": "340 ?ms", "why": "latency exact" },
+    { "has": "12%", "why": "discount exact" },
+    { "has": "5%", "why": "discount exact" },
+    { "has": "standard", "why": "enum kept" },
+    { "writes": "none" }
+  ],
+  "06-secret-in-source": [
+    { "absent": "gk-test-7f3a9c2e41d8b6a0FAKEKEY99", "why": "key removed" },
+    { "absent": "Tr0ub4dor", "why": "password removed" },
+    { "has": "GEOCODE_API_KEY", "why": "env var name kept" },
+    { "has": "50 requests per second|50 req", "why": "rate limit kept" },
+    { "has": "suppl|separately|provided", "why": "dependency on the key kept" },
+    { "has": "geo\\.example\\.com/v1", "why": "base URL kept" },
+    { "writes": "none" }
+  ],
+  "07-insufficient-authority": [
+    { "notInSection": ["approved decision|requirement", "40"], "why": "no authority, so no decision" },
+    { "has": "60 EUR|EUR 60|€60", "why": "current threshold kept" },
+    { "has": "40", "why": "claimed value kept" },
+    { "has": "not asserted|open question", "why": "authority gap surfaced" },
+    { "writes": "none" }
+  ],
+  "08-tiny": [
+    { "has": "Download CSV", "why": "exact label" },
+    { "has": "Hal", "why": "approver kept" },
+    { "maxChars": 900, "why": "small in, small out" },
+    { "writes": "none" }
+  ],
+  "09-large-noisy": [
+    { "inSection": ["approved decision", "21"], "why": "21+ decided by Vera" },
+    { "inSection": ["approved decision", "card"], "why": "cards only for v1" },
+    { "notInSection": ["approved decision|requirement", "10 to 20|10-20|10–20"], "why": "proposals not promoted" },
+    { "has": "25\\+|25 or more", "why": "Omar's dissent kept" },
+    { "has": "31%", "why": "measured value kept" },
+    { "has": "pending", "why": "pending bookings open question" },
+    { "has": "PLAT-2231", "why": "dependency id kept" },
+    { "has": "GET /calendar/v3/listings/\\{listing_id\\}/availability", "why": "endpoint exact" },
+    { "has": "days_out_of_range", "why": "error exact" },
+    { "has": "/calendar/v3/availability:batch", "why": "batch endpoint exact" },
+    { "has": "03:00 UTC", "why": "refresh time kept" },
+    { "has": "24 ?h", "why": "staleness requirement kept" },
+    { "absent": "cal-stg-9b1e44d07ac2FAKETOKEN3381", "why": "token removed" },
+    { "has": "token", "why": "token dependency kept" },
+    { "maxCount": ["03:00 UTC", 2], "why": "repeated fact not repeated" },
+    { "maxRatio": 0.9, "why": "shorter than a dense source with the API contract kept verbatim" },
+    { "writes": "none" }
+  ],
+  "10-save-it": [
+    { "writes": "handoffs/export-label.md" },
+    { "fileHas": ["handoffs/export-label.md", "Download CSV"] }
+  ],
+  "11-no-save": [
+    { "has": "Tuesdays? 09:00|Tuesday", "why": "decision kept" },
+    { "has": "0\\.8%", "why": "exact value" },
+    { "writes": "none", "why": "a handoffs directory being mentioned is not a save request" }
+  ],
+  "12-implementation-details-no-request": [
+    { "has": "products_v7", "why": "exact name" },
+    { "has": "9\\.4%", "why": "exact value" },
+    { "has": "63%", "why": "exact value" },
+    { "notInSection": ["requirement|approved decision|acceptance", "alert"], "why": "an observation is not a requirement" },
+    { "absent": "\\b(should|must|need to|needs to) (add|fix|implement|set up|migrate|replace)", "why": "no invented work" },
+    { "writes": "none" }
+  ],
+  "13-delta-on-large": [
+    { "has": "^#+ Relationship to previous handoff", "why": "delta section" },
+    { "inSection": ["relationship", "14"], "why": "14+ conflict listed" },
+    { "notInSection": ["approved decision", "14\\+|14 or more|14 days"], "why": "marketing's 14 is not a decision" },
+    { "inSection": ["approved decision|relationship", "pending"], "why": "pending decision recorded" },
+    { "has": "310 ?ms", "why": "load test value" },
+    { "has": "48 ?h", "why": "hold duration" },
+    { "has": "PLAT-2231", "why": "dependency resolution" },
+    { "inSection": ["propos|not yet approved|relationship", "first (results )?page"], "why": "Tess's idea stays a proposal" },
+    { "writes": "none" }
+  ]
+}

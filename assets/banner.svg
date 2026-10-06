@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 480" width="1600" height="480" role="img" aria-labelledby="banner-title banner-desc">
+  <title id="banner-title">v60samurai / skills</title>
+  <desc id="banner-desc">A charcoal banner for a personal collection of precise Claude Code slash commands. A large slash skills title sits below the owner name, with the phrase small tools. explicit jobs. and a restrained handoff command example.</desc>
+  <rect width="1600" height="480" fill="#151918"/>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace">
+    <text x="104" y="116" font-size="32" fill="#aab3ae">v60samurai</text>
+    <text x="96" y="270" font-size="120" font-weight="600" fill="#edf0e9"><tspan fill="#a8c7ae">/</tspan>skills</text>
+    <text x="104" y="344" font-size="28" fill="#aab3ae">small tools. explicit jobs.</text>
+    <path d="M 1032 192 V 288" stroke="#3c4741" stroke-width="2"/>
+    <text x="1104" y="251" font-size="36" fill="#edf0e9"><tspan fill="#a8c7ae">/</tspan>handoff</text>
+  </g>
+  <path d="M 104 400 H 1496" stroke="#303934" stroke-width="2"/>
+  <path d="M 104 400 H 168" stroke="#a8c7ae" stroke-width="2"/>
+</svg>
