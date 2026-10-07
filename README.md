@@ -1,100 +1,64 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="v60samurai / skills. small tools. explicit jobs." width="100%">
+  <img src="assets/banner.svg" alt="v60samurai / skills" width="100%">
 </p>
 
 # Skills
 
-Claude Code skills I wrote and use. Each one does a single job that I was otherwise re-explaining in every session, and none of them plans, routes, or decides what the work means.
+First-party agent skills, with one canonical source per capability. The [catalog](catalog.json) records skills maintained in other repositories rather than copying them here.
 
-## Published
+## Handoff
 
-| Skill | What it does | Invocation | Status |
-| --- | --- | --- | --- |
-| [`handoff`](skills/handoff/SKILL.md) | Compiles meeting notes, threads, specs and updates into one self-contained Markdown evidence file. Noise goes, material detail stays. A proposal stays a proposal, a disagreement stays visible, and secrets stay out. Inside a Git repository it reads the project's status quo first, writes the file, and returns a short receipt. | `/handoff` | portable, explicit only |
+[`handoff`](skills/handoff/SKILL.md) resolves new work before engineering. It preserves new evidence, inspects current truth, resolves factual uncertainty, asks genuine human questions, invokes applicable domain owners and compiles a compact current BUILD contract. It stops before shipping code.
 
-[`catalog.json`](catalog.json) lists every skill I have written, including the ones that live elsewhere: in their own repositories, or inside a larger system they depend on. Each entry says where the skill lives and why its source is not copied here.
+```text
+/handoff
+  capture new evidence
+  understand the repository
+  resolve facts and genuine human decisions
+  crystallize PRODUCT / DESIGN / TECH / GLOSSARY / warranted ADRs
+  compile BUILD.md, or maintain a decision map when uncertainty remains
+  stop
 
-## Principles
+human chooses a READY slice
+fresh native Cursor session
+/poteto-mode
+  consume the requested BUILD slice
+  choose engineering HOW
+  implement, prove, independently review, fix and reverify
+  explain and open one reviewable PR
+  stop before merge
 
-- **Smallest sufficient machinery.** A skill is a Markdown file until it needs to be more.
-- **One job, one owner.** `/handoff` packages evidence. Whoever receives it decides what the evidence means.
-- **Evidence before invention.** A skill reports what the source says and marks what it does not say.
-- **One router at most.** These skills never choose a playbook, a milestone, or the next skill.
-- **The human moves work between stages.** A skill calls the next one only when the invocation asks for that in words.
+human merges
+```
 
-## Install
+Brainstorm-stack owns meaningful divergence, design-stack owns meaningful experience design, Stacksmith owns actual stack/tool choices and Jev Atlas scans semantic-judgment opportunities. Every meaningful intake evaluates their triggers. A matched owner must participate through its real source. Unavailable mandatory capabilities block affected work rather than silently disappear.
 
-A skill is a directory with a `SKILL.md`. Claude Code loads personal skills from `~/.claude/skills/<name>/`.
+Existing canonical truth is referenced. New ephemeral material is preserved with provenance and epistemic status. Prior handoffs remain append-only. A proposal, recommendation or unanswered default cannot become approval.
+
+## Install and use
+
+Clone this repository, then link the complete `skills/handoff` directory into the host's personal skill directory. For example, after cloning into `~/Developer/skills`:
 
 ```bash
-git clone https://github.com/v60samurai/skills.git
-ln -s "$PWD/skills/skills/handoff" ~/.claude/skills/handoff
+ln -s ~/Developer/skills/skills/handoff ~/.claude/skills/handoff
 ```
 
-Copy the directory instead of linking it if you would rather not track this repository. Then type `/handoff` in Claude Code, followed by the material:
+Use the same canonical source in Cursor's `~/.cursor/skills/handoff` and other hosts that support skills. Existing destinations must be inspected before replacing them. Domain owners and upstream supporting skills remain separately owned installations; see [source discipline](skills/handoff/references/sources.md).
 
 ```text
-/handoff <paste notes, a thread, or file paths>
-/handoff --inline <material>
-/handoff save it to docs/handoffs/pricing.md <material>
-/handoff and run Build Flow <material>
+/handoff Add a CSV export for the current report. The export must use the existing filters.
+/handoff <meeting notes, new requirements or evidence paths>
+/handoff Continue resolution for <initiative or prior handoff path>
 ```
 
-Inside a Git repository the first form writes one Markdown file and prints a receipt. `--inline` prints the handoff in chat and writes nothing. An explicit path wins over the storage rule. The last form writes the file, then starts the Build Flow with its path.
+The skill sets `disable-model-invocation: true`, so the human enters it explicitly. It needs no third lifecycle command. A tiny request uses minimal resolution. Multi-session fog stays in one Wayfinder-style decision map until sufficient truth exists.
 
-`handoff` sets `disable-model-invocation: true`, so it runs only when you type it.
+The [BUILD contract](skills/handoff/references/build.md) and [worked example](skills/handoff/references/build-example.md) define mission fields, genuine Human Gates and one logical PR per slice. READY requires sufficient truth, resolved blocking gates and landed prerequisites. Native PStack owns method, models, delegation, verification and PR mechanics; the BUILD artifact does not prescribe them.
 
-## How `/handoff` works
+## Verification
 
-`/handoff` is not a summary. It is a persistent evidence boundary between messy human and project context and the Build Flow.
-
-```text
-MESSY CONTEXT
--> /handoff
--> SELF-CONTAINED EVIDENCE FILE
--> Build Flow
--> CANONICAL TRUTH / READY
--> PStack
-```
-
-`/handoff` records what was said, what exists, what was observed and what was proposed. The Build Flow decides what is authoritative and executable. PStack decides how ready work gets engineered. The handoff is rich enough that the Build Flow needs no original context, and never so opinionated that the Build Flow has nothing left to reconcile.
-
-It removes noise without removing material context: repetition and chatter collapse, and every distinct requirement, roadmap phase, implementation step, contract, testing expectation, dependency and open question stays.
-
-- **A file by default.** Inside a Git repository the handoff is written to disk. When exactly one Build Flow spec matches the source, it goes to `specs/<id>/handoffs/H<nnn>-<YYYY-MM-DD>-<slug>.md`, numbered after the handoffs already there and never overwriting one. A spec matches by evidence: the user names it, the source names it or adds to a handoff stored in it, or the source is about the same feature as the spec's documents. Being the only spec in the repository is not evidence. When no spec matches, or the match is ambiguous, the handoff goes to the intake directory, `handoffs/<YYYYMMDD-HHMMSS>-<slug>.md`, and the Build Flow routes it. The header records which of these was established. Outside a repository, with no path given, there is nowhere to write, so the handoff is printed.
-- **A header from commands.** The file opens with plain `Label: value` lines: handoff id, created time, repository, branch, full baseline revision, working tree, depth, mode, previous handoff, spec, sources and their hashes, material information loss, and `Ready for Build Flow`. Each value comes from command output in that run.
-- **A receipt in chat.** Path, depth, baseline, mode, material information loss, the verdict, and the next command. `Ready for Build Flow: YES` means the file is self-contained enough for the Build Flow to start. It says nothing about engineering readiness.
-- **Adaptive depth.** The skill picks the depth from how much unique consequential material the source holds, not from its length. SMALL: one update or decision. STANDARD: a meaningful feature or update. DEEP: several systems, architecture, a roadmap or an implementation sequence, which can run to several thousand words.
-- **Self-containment.** A fresh session with only the repository and the file path must not need the original chat, notes or document. References supplement the handoff and never stand in for content. If the source points at material that was not supplied, the handoff says so and its verdict is `Ready for Build Flow: NO`.
-- **Status quo first.** Inside a Git repository the skill does a bounded pass before writing, read-only except for the handoff file: branch, revision, working tree, project documents, existing specs, and the code on the surfaces the source touches. The handoff reports the source as a delta against the committed baseline: what already exists, what is new, what conflicts. Uncommitted local changes are kept apart. What the code does is evidence, not approval.
-- **Two checks before writing.** Check A asks what the receiver would still have to recover from the original source. Check B asks whether the handoff decided anything the Build Flow should reconcile. Both must pass.
-- **No Build Flow or PStack output.** No truth documents, decision or ticket ids, readiness states, execution plan, playbook or model choice, and no test plan the source did not supply. A source's own roadmap or plan is carried under its own names, labelled as the source's.
-
-For a new project handoff, start from a clean default branch:
-
-```bash
-cd <project>
-git status
-claude
-```
-
-```text
-/handoff <material>
-```
-
-Review the file, then run the Build Flow with its path, as the receipt says. `/handoff` stops after the receipt unless the invocation asks for the chain ("/handoff and run Build Flow"), and the Build Flow still does its own preflight and reconciliation against the repository either way.
-
-## Structure
-
-```text
-skills/<name>/SKILL.md   one directory per published skill
-catalog.json             every first-party skill and where it lives
-tests/handoff/           source fixtures, repository fixtures, property checks, and a runner
-assets/                  banner
-```
-
-`node tests/handoff/run.mjs` runs each fixture through `/handoff` with `claude -p` and checks properties of the result: an exact value survived, a proposal was not promoted to a decision, every roadmap phase kept its own entry, a repetitive transcript came out shorter than a dense spec, no statement was made twice, a handoff landed in a spec's store only when that spec matched the source, no secret leaked, nothing was written in inline mode or outside a repository with no path given, and inside a repository the one handoff file was the only change to Git state.
+Run `node --test tests/handoff/structure.test.mjs` for bundle integrity and contract checks. The [behavioral cases](tests/handoff/cases.json) require actual model/tool traces and artifact inspection. Structural tests do not prove routing. Native Cursor compatibility and installed slash discovery must be qualified separately before replacing an existing runtime.
 
 ## Attribution
 
-The source in this repository is original work under the [MIT license](LICENSE). Skills adapted from someone else's work are credited in `catalog.json` and their source is not republished here. The banner was designed by Codex.
+Original work under the [MIT license](LICENSE). Upstream methodologies retain their owners and source provenance; this repository does not republish their lifecycle implementations.

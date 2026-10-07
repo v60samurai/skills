@@ -1,0 +1,87 @@
+{
+  "source": "preservation-source.md",
+  "materialDenominator": 13,
+  "items": [
+    {
+      "id": "scope",
+      "epistemicStatus": "approved",
+      "requiredMeaning": "supplier complaint, not customer refund"
+    },
+    {
+      "id": "hazard",
+      "epistemicStatus": "approved",
+      "requiredMeaning": "human reviewer within 15 minutes"
+    },
+    {
+      "id": "explanation",
+      "epistemicStatus": "approved",
+      "requiredMeaning": "supporting text, uncertainty, reviewer override"
+    },
+    {
+      "id": "english",
+      "epistemicStatus": "approved",
+      "requiredMeaning": "English only; multilingual excluded"
+    },
+    {
+      "id": "api-row",
+      "epistemicStatus": "observed",
+      "requiredMeaning": "C-1042; S-91; 2026-10-07T09:20:00Z; order_id null"
+    },
+    {
+      "id": "retry",
+      "epistemicStatus": "observed",
+      "requiredMeaning": "HTTP 429; Retry-After: 30"
+    },
+    {
+      "id": "limit",
+      "epistemicStatus": "constraint",
+      "requiredMeaning": "120 requests per minute per credential"
+    },
+    {
+      "id": "privacy",
+      "epistemicStatus": "constraint",
+      "requiredMeaning": "no complaint content in public error logs"
+    },
+    {
+      "id": "model",
+      "epistemicStatus": "proposal",
+      "requiredMeaning": "Jev proposed, no model chosen, alternatives considered"
+    },
+    {
+      "id": "publication",
+      "epistemicStatus": "proposal",
+      "requiredMeaning": "nightly publication not authorized"
+    },
+    {
+      "id": "bulk",
+      "epistemicStatus": "open-human",
+      "requiredMeaning": "bulk override scope unresolved"
+    },
+    {
+      "id": "sharing",
+      "epistemicStatus": "open-human",
+      "requiredMeaning": "moderation reasons sharing unresolved"
+    },
+    {
+      "id": "proof",
+      "epistemicStatus": "test-expectation",
+      "requiredMeaning": "safety hazard and delayed invoice negative control"
+    }
+  ],
+  "duplicationBaseline": {
+    "priorEvidence": "prior-evidence.md",
+    "recoverableTruth": [
+      "PRODUCT.md queue/reviewer",
+      "TECH.md logging"
+    ],
+    "expectedWholePriorCopies": 0
+  },
+  "checks": [
+    "prior evidence byte hash unchanged",
+    "every item maps to evidence or truth with source attribution",
+    "unanswered human choices remain OPEN",
+    "no shipping code edits",
+    "BUILD refs sufficient without original chat"
+  ],
+  "giantFixture": "Repeat recoverable prior evidence to exactly 1800 lines in a disposable fixture; do not use size as pass/fail criterion."
+}

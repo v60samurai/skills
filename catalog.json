@@ -10,11 +10,11 @@
   "skills": [
     {
       "name": "handoff",
-      "description": "Compiles messy source material and the repository's status quo into one self-contained Markdown evidence file that keeps material detail and each statement's epistemic status. Inside a Git repository it writes the file and returns a short receipt.",
+      "description": "Pre-build resolution: preserve new evidence, inspect current truth, resolve uncertainty with applicable domain owners, crystallize durable truth and compile BUILD.md. Stops before shipping code.",
       "status": "portable",
       "publish_mode": "source",
       "canonical_owner": "skills/handoff",
-      "invocation": "/handoff (explicit only)",
+      "invocation": "/handoff",
       "reason": "Written for this repository. Standalone."
     },
     {
