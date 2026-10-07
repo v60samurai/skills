@@ -25,6 +25,15 @@ export function gitState(cwd) {
     rest: JSON.stringify([status.filter((l) => !l.startsWith('?? ')), git(cwd, 'diff'), git(cwd, 'diff', '--cached'), git(cwd, 'stash', 'list')]) }
 }
 
+// The ids of the Build Flow specs in a project: the directories under specs/
+// that hold Build Flow material, by the definition in the skill's FILE.md.
+const SPEC_MARKS = ['PRODUCT.md', 'DESIGN.md', 'TECH.md', 'EXECUTION.md', 'handoffs', 'working', 'execution']
+export function specsOf(cwd) {
+  const dir = join(cwd, 'specs')
+  if (!existsSync(dir)) return []
+  return readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory() && SPEC_MARKS.some((m) => existsSync(join(dir, e.name, m)))).map((e) => e.name).sort()
+}
+
 // A throwaway project for a case. With a directory in repos/ it is a Git
 // repository on main: repos/<case> and repos/<case>.overlay/ are committed as
 // the baseline, and repos/<case>.dirty/ is copied on top and left uncommitted.

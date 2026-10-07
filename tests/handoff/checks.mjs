@@ -3,9 +3,9 @@
 // static text.
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { checkHeader, parseHeader } from './header.mjs'
+import { checkHeader, checkDestination, parseHeader } from './header.mjs'
 import { lintHandoff, classifyPath } from './lint.mjs'
-import { inventory, within } from './inventory.mjs'
+import { inventory, within, repeats } from './inventory.mjs'
 
 const re = (s) => new RegExp(s, 'im')
 const DAY = 86400000
@@ -85,14 +85,15 @@ export function checkPath(relPath, want = {}, { start, end, now = Date.now() } =
 }
 
 export const TYPES = ['has', 'absent', 'inSection', 'notInSection', 'minCount', 'maxCount', 'sectionMinCount', 'shorterThan', 'maxRatio', 'maxChars',
-  'writes', 'fileHas', 'git', 'stdoutHas', 'stdoutAbsent', 'path', 'header', 'lint', 'receipt', 'inventory', 'inline']
+  'maxRepeats', 'writes', 'fileHas', 'git', 'stdoutHas', 'stdoutAbsent', 'path', 'header', 'destination', 'lint', 'receipt', 'inventory', 'inline']
 
 // Applies one check. Returns true, false, or a list of problems (empty passes).
 //
 // r is the finished run: out (stdout), doc (the handoff: the written file when
 // the case writes one, else stdout), source, cwd, written (new files), git
 // ({ unchanged, added }), handoffPath, expected (header values the run
-// measured), start, end, outDir, here.
+// measured), specs (ids of the Build Flow specs the repository held before the
+// run), start, end, outDir, here.
 export function apply(c, r) {
   const doc = r.doc ?? ''
   const size = bodyOf(doc).length
@@ -106,6 +107,10 @@ export function apply(c, r) {
   if (c.shorterThan) { const other = join(r.outDir, `${c.shorterThan}.handoff.md`); return existsSync(other) && size < bodyOf(readFileSync(other, 'utf8')).length }
   if (c.maxRatio) return size / r.source.length <= c.maxRatio
   if (c.maxChars) return size <= c.maxChars
+  if (c.maxRepeats !== undefined) {
+    const found = repeats(bodyOf(doc))
+    return found.length <= c.maxRepeats ? true : found.map((f) => `${f.score} "${f.first.text.slice(0, 70)}" (${f.first.section.split(' > ').pop()}) and "${f.second.text.slice(0, 70)}" (${f.second.section.split(' > ').pop()})`)
+  }
   if (c.stdoutHas) return re(c.stdoutHas).test(r.out)
   if (c.stdoutAbsent) return !re(c.stdoutAbsent).test(r.out)
   if (c.writes === 'none') return r.written.length === 0 ? true : [`wrote ${r.written.join(', ')}`]
@@ -118,6 +123,10 @@ export function apply(c, r) {
   }
   if (c.path) return checkPath(r.handoffPath, c.path, r)
   if (c.header) return r.doc ? checkHeader(doc.slice(Math.max(0, doc.search(/^# Handoff:/m))), { ...r.expected, ...c.header }) : ['no handoff to read']
+  if (c.destination) {
+    const value = parseHeader(doc.slice(Math.max(0, doc.search(/^# Handoff:/m)))).fields['Build Flow spec']?.[0]
+    return value === undefined ? ['no `Build Flow spec:` line to read'] : checkDestination({ specs: r.specs ?? [], value, path: r.handoffPath })
+  }
   if (c.lint) return lintHandoff(doc).map((f) => `${f.rule}, line ${f.line}: ${f.text.slice(0, 80)}`)
   if (c.receipt) return checkReceipt(r.out, { path: r.handoffPath, doc, ...c.receipt })
   if (c.inline) return checkInline(r.out)

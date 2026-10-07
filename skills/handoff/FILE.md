@@ -9,10 +9,34 @@ Take the first rule that fits.
 1. **Inline by request.** The invocation carries `--inline` or says so in words ("inline", "just print it", "don't write a file"). Write nothing. See Inline mode.
 2. **An explicit path.** The user gave one ("save it to `<path>`"). Use it, as `.md`, inside a repository or outside one. If a file is already there, stop and ask. A directory the user only mentions ("we keep handoffs in `./handoffs`") is not a request to save.
 3. **No repository.** There is no Git repository and no explicit path. Write nothing. See Inline mode.
-4. **One Build Flow spec.** A spec is a directory `specs/<id>/` that holds Build Flow material: `PRODUCT.md`, `DESIGN.md`, `TECH.md`, `EXECUTION.md`, `handoffs/`, `working/` or `execution/`. Any other directory under `specs/`, such as `specs/openapi/`, is not one. When exactly one exists, or the user names one, or the source is plainly about exactly one, write into that spec's store. Plainly means the source says so itself: it names the spec or its product, or it adds to a handoff stored there.
-5. **Intake.** No spec exists, or several exist and none is named or plainly the subject. Write to the intake directory. A source that touches several specs, or fits one better than another, is not plainly about one: weighing the fit is choosing, and choosing between specs is the Build Flow's call. With several, record `Build Flow spec: several (<ids>)`.
+4. **One matching Build Flow spec.** Exactly one spec **matches** the source, by the evidence under Matching a spec. Write into that spec's store.
+5. **Intake.** Every other case: no spec exists, no spec matches, or the match is ambiguous. Write to the intake directory. The Build Flow reconciles an intake file and routes it to a spec afterwards.
 
 A repository has one store per spec and one intake directory. Use what exists and create no second one.
+
+### Matching a spec
+
+A spec is a directory `specs/<id>/` that holds Build Flow material: `PRODUCT.md`, `DESIGN.md`, `TECH.md`, `EXECUTION.md`, `handoffs/`, `working/` or `execution/`. Any other directory under `specs/`, such as `specs/openapi/`, is not one.
+
+A spec **matches** when the repository pass shows the source belongs to it. Relevance is established by evidence, and the count of specs is never evidence. Three kinds of evidence count, strongest first:
+
+1. **The user names the spec** in the invocation.
+2. **The source names the spec**, by its id, or adds to a handoff already stored in it: a `DELTA` whose previous handoff is under `specs/<id>/handoffs/`.
+3. **The subject is the spec's own product area.** The source and the spec's truth documents (`PRODUCT.md`, `TECH.md`, its stored handoffs) are about the same feature, shown by concrete nouns they share: the feature name, its surfaces, entities or endpoints. No other spec fits as well.
+
+These establish nothing: the spec is the only one in the repository, the source and the spec share the repository, or they share generic words such as "booking", "user" or "dashboard".
+
+Then record what was established in the header and take the destination that goes with it:
+
+| Established | `Build Flow spec:` | Destination |
+| --- | --- | --- |
+| Exactly one spec matches. | `<id>` | That spec's store |
+| No spec exists. | `none` | Intake |
+| One or more specs exist, and the source is about a different product area from each. | `none matched (unrelated: <ids>)` | Intake |
+| One or more specs exist, and the evidence neither shows a match nor rules one out. | `none matched (unclear: <ids>)` | Intake |
+| Two or more specs match about equally, or the source spans them. | `several (<ids>)` | Intake |
+
+`<ids>` are spec ids separated by a comma and a space: every spec that exists after `none matched`, and the specs that match after `several`. A file in a spec's store cannot be moved out, so a doubtful match goes to intake.
 
 ### The spec store
 
@@ -61,7 +85,7 @@ Working tree: clean | dirty: <counts>; overlaps the subject: yes | no
 Depth: SMALL | STANDARD | DEEP
 Mode: NEW | DELTA
 Previous handoff: <path> | none
-Build Flow spec: <id> | none | several (<ids>)
+Build Flow spec: <id> | none | none matched (unrelated: <ids>) | none matched (unclear: <ids>) | several (<ids>)
 Sources: <count and kinds, for example 2 (1 file, 1 pasted)>
 Source hashes: <path sha256 <hash>; ...> | pasted text, not hashed
 Material information loss: NONE | LOW: <what> | HIGH: <what>
@@ -71,6 +95,7 @@ Ready for Build Flow: YES | NO: <the evidence still missing>
 - **Plain lines only.** The Build Flow reads everything before the first line consisting of `---` as the header. Write no YAML frontmatter, and no `---` line anywhere before the first `##` heading.
 - **Values come from command output in this run.** `Created` from `date`, `Repository` from the last path segment of `git rev-parse --show-toplevel`, `Branch` from `git branch --show-current`, `Baseline` from `git rev-parse HEAD`, `Working tree` from `git status --short`, each hash from `shasum -a 256 <path>`. Run the command again if the value is not on screen.
 - **Working tree.** Counts read like `dirty: 2 modified, 1 untracked`. An untracked earlier intake handoff is named in the summary: `dirty: 1 untracked (handoffs/20261007-101500-refund-window.md, an earlier intake handoff); overlaps the subject: no`.
+- **Build Flow spec** takes the value from the table under Matching a spec. `<id>` appears alone only when the file is in that spec's store.
 - **Source hashes.** One entry per source file the user named. Pasted text has no file: write `pasted text, not hashed`. With both, list the files and end with `; pasted text, not hashed`.
 - **Handoff id** for a handoff written to an explicit path, or printed inline, is the stem the intake name would have had.
 - The header carries no hash of the file itself and no secret value.

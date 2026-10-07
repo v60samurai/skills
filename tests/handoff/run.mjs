@@ -23,7 +23,9 @@
 // A case with a directory in repos/ runs inside a Git repository (see
 // project() in harness.mjs). There the handoff is a file: the content checks
 // read the one new file at an allowed path, and the checks under "file" in
-// checks.json apply as well (path, Git state, header, lint, receipt). A case
+// checks.json apply as well (path, Git state, header, lint, receipt). Every
+// repository case is also held to the destination check: the header's
+// `Build Flow spec:` value, the specs that exist and the path must agree. A case
 // that carries { "writes": "none" } is inline: the content checks read the
 // chat reply. A case that carries { "writes": "<path>" } names its own file. The checks
 // under "outside" apply to a case with no repository. A case that writes no
@@ -35,7 +37,7 @@
 import { mkdtempSync, readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { here, project, link, claude, files, gitState, leaveUnderTestRunner } from './harness.mjs'
+import { here, project, link, claude, files, gitState, specsOf, leaveUnderTestRunner } from './harness.mjs'
 import { apply } from './checks.mjs'
 import { classifyPath } from './lint.mjs'
 
@@ -50,6 +52,7 @@ function run(name, source, own) {
   const p = project(name)
   const before = p.inRepo ? gitState(p.cwd) : null
   const had = new Set(files(p.cwd))
+  const specs = p.inRepo ? specsOf(p.cwd) : []
   link(p.cwd, 'handoff', skill)
   const start = Date.now()
   const out = claude(p.cwd, `/handoff ${source}`)
@@ -65,7 +68,7 @@ function run(name, source, own) {
   const doc = handoffPath ? (existsSync(join(p.cwd, handoffPath)) ? readFileSync(join(p.cwd, handoffPath), 'utf8') : '') : fileMode ? '' : out
   writeFileSync(join(outDir, `${name}.out.md`), out)
   writeFileSync(join(outDir, `${name}.handoff.md`), doc)
-  return { out, doc, source, cwd: p.cwd, inRepo: p.inRepo, written, handoffPath, fileMode, start, end, outDir, here,
+  return { out, doc, source, cwd: p.cwd, inRepo: p.inRepo, written, handoffPath, fileMode, specs, start, end, outDir, here,
     git: { unchanged: same && added.length === 0, rest: same, added },
     expected: p.inRepo ? { repository: p.names, branch: before.branch, head: before.head, dirty: JSON.parse(before.rest)[0].length + before.untracked.length > 0,
       notBefore: start - 120000, notAfter: end + 120000, ...(fileMode && handoffPath ? { path: handoffPath } : {}) } : {} }
@@ -88,7 +91,9 @@ for (const name of names) {
   // A case's own path, header or receipt check replaces the default of the same type.
   const defaults = r.fileMode ? checks.file.filter((d) => !own.some((c) => Object.keys(d)[0] in c)) : []
   const printed = !r.fileMode && !r.handoffPath ? [{ inline: true, why: 'the reply is the handoff: the title first, no receipt after' }] : []
-  const bad = [...checks.all, ...(r.inRepo ? [] : checks.outside), ...defaults, ...printed, ...own].flatMap((c) => {
+  // Inside a repository the header's spec line and the path the file took must agree with the specs that exist.
+  const routed = r.inRepo && !own.some((c) => typeof c.writes === 'string' && c.writes !== 'none') ? [{ destination: true, why: 'only a matched spec takes the file into its store; an unmatched or ambiguous one goes to intake' }] : []
+  const bad = [...checks.all, ...(r.inRepo ? [] : checks.outside), ...defaults, ...routed, ...printed, ...own].flatMap((c) => {
     const result = apply(c, r)
     return result === true || (Array.isArray(result) && !result.length) ? [] : [{ c, why: Array.isArray(result) ? result : [] }]
   })
