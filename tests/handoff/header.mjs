@@ -33,6 +33,51 @@ export function parseHeader(text) {
 }
 
 const get = (h, label) => h.fields[label]?.[0]
+
+// The five forms of `Build Flow spec:`, read into what the handoff says it
+// established. Anything else is null.
+//   <id>                             { kind: 'matched', ids: [id] }
+//   none                             { kind: 'none', ids: [] }
+//   none matched (unrelated: <ids>)  { kind: 'unrelated', ids }
+//   none matched (unclear: <ids>)    { kind: 'unclear', ids }
+//   several (<ids>)                  { kind: 'several', ids }, two ids or more
+const ID = '[A-Za-z0-9][A-Za-z0-9._-]*'
+const IDS = `${ID}(?:, ${ID})*`
+export function specValue(value) {
+  const v = String(value ?? '')
+  if (v === 'none') return { kind: 'none', ids: [] }
+  let m = new RegExp(`^none matched \\((unrelated|unclear): (${IDS})\\)$`).exec(v)
+  if (m) return { kind: m[1], ids: m[2].split(', ') }
+  m = new RegExp(`^several \\((${ID}, ${IDS})\\)$`).exec(v)
+  if (m) return { kind: 'several', ids: m[1].split(', ') }
+  return new RegExp(`^${ID}$`).test(v) && !['none', 'several', 'unrelated', 'unclear', 'matched'].includes(v.toLowerCase()) ? { kind: 'matched', ids: [v] } : null
+}
+
+// Whether the header's `Build Flow spec:` value, the specs the repository
+// holds and the path the file took agree. `specs` are the ids of the Build
+// Flow specs that existed before the run. `path` is where the handoff was
+// written, or undefined for an inline handoff. Only a matched spec takes the
+// file into a spec's store: an unmatched or ambiguous one goes to intake,
+// however many specs exist.
+export function checkDestination({ specs = [], value, path }) {
+  const said = specValue(value)
+  if (!said) return [`\`Build Flow spec:\` is \`${value}\`, which is none of the allowed forms`]
+  const bad = []
+  const where = path === undefined ? null : classifyPath(path)
+  const missing = said.ids.filter((id) => !specs.includes(id))
+  if (missing.length) bad.push(`\`Build Flow spec:\` names \`${missing.join('`, `')}\`, and the repository holds ${specs.length ? `\`${specs.join('`, `')}\`` : 'no spec'}`)
+  if (said.kind === 'none' && specs.length) bad.push(`\`Build Flow spec:\` is \`none\`, and the repository holds \`${specs.join('`, `')}\`: say whether they are unrelated, unclear or several`)
+  if (['unrelated', 'unclear'].includes(said.kind)) {
+    const left = specs.filter((id) => !said.ids.includes(id))
+    if (left.length) bad.push(`\`Build Flow spec:\` says none matched and leaves out \`${left.join('`, `')}\``)
+  }
+  if (where?.kind === 'spec') {
+    if (said.kind !== 'matched') bad.push(`${path} is inside a spec, and the header established \`${value}\`: without one matching spec the file goes to the intake directory`)
+    else if (where.spec !== said.ids[0]) bad.push(`${path} is under specs/${where.spec}/, and the header matched \`${said.ids[0]}\``)
+  }
+  if (where?.kind === 'intake' && said.kind === 'matched') bad.push(`${path} is in the intake directory, and the header matched \`${said.ids[0]}\`: a matched spec takes the file into specs/${said.ids[0]}/handoffs/`)
+  return bad
+}
 const HASH_PART = /^(pasted text, not hashed|\S.* sha256 [0-9a-f]{64})$/
 
 const SHAPES = {
@@ -45,7 +90,7 @@ const SHAPES = {
   Depth: (v) => /^(SMALL|STANDARD|DEEP)$/.test(v) || 'is SMALL, STANDARD or DEEP',
   Mode: (v) => /^(NEW|DELTA)$/.test(v) || 'is NEW or DELTA',
   'Previous handoff': (v) => v.length > 0 || 'is a path or `none`',
-  'Build Flow spec': (v) => /^(none|several \([^()]+,[^()]+\)|[A-Za-z0-9][A-Za-z0-9._-]*)$/.test(v) || 'is a spec id, `none` or `several (<ids>)`',
+  'Build Flow spec': (v) => specValue(v) !== null || 'is a spec id, `none`, `none matched (unrelated: <ids>)`, `none matched (unclear: <ids>)` or `several (<ids>)`',
   Sources: (v) => /^\d+\b/.test(v) || 'starts with the count',
   'Source hashes': (v) => v.split(/;\s*/).every((p) => HASH_PART.test(p.trim())) || 'is `<path> sha256 <64 hex>` entries or `pasted text, not hashed`',
   'Material information loss': (v) => /^(NONE|(LOW|HIGH): \S.*)$/.test(v) || 'is NONE, `LOW: <what>` or `HIGH: <what>`',
@@ -55,8 +100,8 @@ const SHAPES = {
 // Problems with the header, as sentences. An empty list means it conforms.
 // `expected` carries what the run measured: repository (a name or a list of
 // acceptable names), branch, head, dirty, overlaps, depth, mode, previous (a
-// regex), spec (an id, `none` or `several`), specs (ids a `several` value must
-// name), path (where the storage rule put the file), notBefore and notAfter (ms).
+// regex), spec (an id, `none`, `several`, `unrelated` or `unclear`), specs (ids
+// a `several`, `unrelated` or `unclear` value must name), path (where the storage rule put the file), notBefore and notAfter (ms).
 export function checkHeader(text, expected = {}) {
   const h = parseHeader(text)
   const bad = []
@@ -89,9 +134,11 @@ export function checkHeader(text, expected = {}) {
   const prev = get(h, 'Previous handoff')
   if (expected.previous !== undefined && prev !== undefined && !new RegExp(expected.previous).test(prev)) bad.push(`\`Previous handoff:\` is \`${prev}\`, expected /${expected.previous}/`)
   const spec = get(h, 'Build Flow spec')
-  if (expected.spec === 'several' && spec !== undefined) {
-    if (!spec.startsWith('several (')) bad.push(`\`Build Flow spec:\` is \`${spec}\`, expected \`several (<ids>)\``)
-    for (const id of expected.specs ?? []) if (!spec.includes(id)) bad.push(`\`Build Flow spec:\` does not name \`${id}\``)
+  if (['several', 'unrelated', 'unclear'].includes(expected.spec) && spec !== undefined) {
+    const said = specValue(spec)
+    const form = expected.spec === 'several' ? 'several (<ids>)' : `none matched (${expected.spec}: <ids>)`
+    if (said?.kind !== expected.spec) bad.push(`\`Build Flow spec:\` is \`${spec}\`, expected \`${form}\``)
+    for (const id of expected.specs ?? []) if (!said?.ids.includes(id)) bad.push(`\`Build Flow spec:\` does not name \`${id}\``)
   } else want('Build Flow spec', expected.spec)
   const created = Date.parse(get(h, 'Created') ?? '')
   if (!Number.isNaN(created) && ((expected.notBefore !== undefined && created < expected.notBefore) || (expected.notAfter !== undefined && created > expected.notAfter))) {

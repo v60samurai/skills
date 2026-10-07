@@ -189,7 +189,7 @@ The new file is still self-contained: restate from the earlier handoff what the 
 
 Write for a capable reader who has no context. Short declarative sentences, plain Markdown, bullets that scan, lists over tables unless the content is a grid. Deep means more items, each still one tight line or short block.
 
-Each statement appears in one section. A decision that sets a requirement is written once, under Approved decisions. A summary of what other sections already say is repetition. Each list has one home: the excluded items in Out of scope, a challenge to a decision under Proposed / not yet approved or Conflicts / mismatches and not beside the decision, an undecided idea under Proposed with its objections beside it, and a question the source asks under Open questions with the positions people hold on it beside it. A later section that needs an earlier statement names it in a few words. Order by topic: how the conversation reached a point appears only when it changes a statement's type.
+Each statement appears in one section. A decision that sets a requirement is written once, under Approved decisions. A summary of what other sections already say is repetition. Each list has one home: the excluded items in Out of scope, a challenge to a decision and the decider's reply to it under Proposed / not yet approved or Conflicts / mismatches, so the decision's entry holds only the decision and who made it, an undecided idea under Proposed with its objections beside it, and a question the source asks under Open questions with the positions people hold on it beside it. A later section that needs an earlier statement names it in a few words. Order by topic: how the conversation reached a point appears only when it changes a statement's type.
 
 Name a person where the name carries authority, a position or ownership. Undisputed facts need no speaker. Quote verbatim only where exact wording is the content: a payload, a command, a field name, an error string, an enum, a threshold, policy wording. Copy it exactly into a code block or inline code. Paraphrase everything else.
 
@@ -250,7 +250,8 @@ Any of these in the draft fails it, unless the words are quoted from the source 
 | "The receipt should tell the user what is in the file." | The receipt is the fixed lines in `FILE.md`. The content is in the file. |
 | "Nobody watches the file being written, so a shorter one will do." | Depth follows the source's material. The reader of the file has nothing else. |
 | "The source is self-explanatory, so the repository pass can be skipped." | Without the pass, existing behavior gets written as new work and conflicts go unseen. |
-| "Two specs exist and this one fits better." | A better fit is a choice, and choosing a spec is the Build Flow's call. Unless the user names the spec or the source itself is about that one spec, write to intake and record `several (<ids>)`. |
+| "There is only one spec, so this belongs to it." | Count is not relevance. A spec matches by the evidence in `FILE.md`. An unrelated handoff filed into a spec's append-only store cannot be moved out, so write to intake. |
+| "Two specs exist and this one fits slightly better." | Two specs that match about equally are ambiguous, and choosing between them is the Build Flow's call. Write to intake and record `several (<ids>)`. |
 | "I remember the branch and revision from earlier." | Header values come from command output in this run. |
 | "The earlier handoff is slightly wrong, so I will fix it in place." | The store is append-only. Write a delta beside it. |
 

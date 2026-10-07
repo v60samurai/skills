@@ -7,11 +7,11 @@ import { readFileSync, readdirSync, existsSync, mkdtempSync, mkdirSync, writeFil
 import { homedir, tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
-import { parseHeader, checkHeader, LABELS, BANNER } from './header.mjs'
+import { parseHeader, checkHeader, checkDestination, specValue, LABELS, BANNER } from './header.mjs'
 import { lintHandoff, classifyPath, nextHandoffNumber, RULES } from './lint.mjs'
-import { inventory, keeps, sections, within } from './inventory.mjs'
+import { inventory, keeps, sections, within, statements, repeats } from './inventory.mjs'
 import { apply, checkReceipt, checkInline, checkPath, bodyOf, TYPES } from './checks.mjs'
-import { here, project, git, gitState, files } from './harness.mjs'
+import { here, project, git, gitState, files, specsOf } from './harness.mjs'
 
 const read = (...p) => readFileSync(join(here, ...p), 'utf8')
 const fixture = (name) => read('static', `${name}.md`)
@@ -98,6 +98,41 @@ test('header: no hash of the file itself, no credential, nothing else between th
   assert.match(checkHeader(good.replace('## Executive context', 'This handoff covers the deck planner.\n\n## Executive context')).join('\n'), /is not part of the header/)
   assert.match(checkHeader(good.replace(BANNER, 'A handoff.')).join('\n'), /missing the line/)
   assert.match(checkHeader(good.replace('# Handoff: ', '# ')).join('\n'), /no `# Handoff: <name>` title line/)
+})
+
+test('header: `Build Flow spec:` has five forms and no other', () => {
+  const allowed = {
+    'disruption-rebooking': { kind: 'matched', ids: ['disruption-rebooking'] },
+    'v2.checkout_flow': { kind: 'matched', ids: ['v2.checkout_flow'] },
+    none: { kind: 'none', ids: [] },
+    'none matched (unrelated: disruption-rebooking)': { kind: 'unrelated', ids: ['disruption-rebooking'] },
+    'none matched (unrelated: deck-planner, disruption-rebooking)': { kind: 'unrelated', ids: ['deck-planner', 'disruption-rebooking'] },
+    'none matched (unclear: disruption-rebooking)': { kind: 'unclear', ids: ['disruption-rebooking'] },
+    'several (deck-planner, disruption-rebooking)': { kind: 'several', ids: ['deck-planner', 'disruption-rebooking'] },
+    'several (a, b, c)': { kind: 'several', ids: ['a', 'b', 'c'] },
+  }
+  for (const [value, read] of Object.entries(allowed)) {
+    assert.deepEqual(specValue(value), read, value)
+    assert.deepEqual(checkHeader(swap(good, 'Build Flow spec', value)), [], value)
+  }
+  const refused = ['two of them', 'several', 'several (deck-planner)', 'several (deck-planner,disruption-rebooking)', 'several: deck-planner, disruption-rebooking', 'none matched',
+    'none matched (disruption-rebooking)', 'none matched (disruption-rebooking exists, unrelated)', 'none matched (unrelated)', 'none matched (irrelevant: disruption-rebooking)',
+    'none (disruption-rebooking is unrelated)', 'disruption-rebooking (the only spec)', 'disruption-rebooking, probably', 'unclear', 'unrelated', 'None', 'specs/disruption-rebooking', '']
+  for (const value of refused) {
+    assert.equal(specValue(value), null, value)
+    const found = checkHeader(swap(good, 'Build Flow spec', value))
+    assert.ok(found.length === 1 && /`Build Flow spec:`/.test(found[0]), `${value} -> ${found.join(' | ')}`)
+  }
+})
+
+test('header: the spec a case expects is checked by what was established, not by wording', () => {
+  const one = swap(good, 'Build Flow spec', 'none matched (unrelated: disruption-rebooking)')
+  assert.deepEqual(checkHeader(one, { spec: 'unrelated', specs: ['disruption-rebooking'] }), [])
+  assert.match(checkHeader(one, { spec: 'unclear' }).join('\n'), /expected `none matched \(unclear: <ids>\)`/)
+  assert.match(checkHeader(one, { spec: 'unrelated', specs: ['deck-planner'] }).join('\n'), /does not name `deck-planner`/)
+  assert.match(checkHeader(one, { spec: 'disruption-rebooking' }).join('\n'), /`Build Flow spec:` is `none matched/)
+  assert.match(checkHeader(good, { spec: 'unrelated', specs: ['disruption-rebooking'] }).join('\n'), /is `none`, expected `none matched \(unrelated: <ids>\)`/)
+  assert.match(checkHeader(swap(good, 'Build Flow spec', 'disruption-rebooking'), { spec: 'unrelated', specs: ['disruption-rebooking'] }).join('\n'), /expected `none matched \(unrelated/)
 })
 
 // --- lint -----------------------------------------------------------------------------------------------------------
@@ -225,6 +260,55 @@ test('path: where a file landed is checked against the storage rule and the cloc
   assert.match(checkPath('specs/disruption-rebooking/handoffs/H004-2026-09-25-a.md', {}, run)[0], /not today/)
 })
 
+// Count is not relevance. Each row is (specs that exist, header value, path).
+test('destination: only a matched spec takes the file into its store, however many specs exist', () => {
+  const SPEC = 'specs/disruption-rebooking/handoffs/H004-2026-10-07-expiry-exception.md'
+  const OTHER = 'specs/deck-planner/handoffs/H002-2026-10-07-expiry-exception.md'
+  const INTAKE = 'handoffs/20261007-093012-boarding-manifest.md'
+  const one = ['disruption-rebooking'], two = ['deck-planner', 'disruption-rebooking']
+  const check = (specs, value, path) => checkDestination({ specs, value, path }).join('\n')
+
+  // One matching spec: the spec path is required.
+  assert.equal(check(one, 'disruption-rebooking', SPEC), '')
+  assert.match(check(one, 'disruption-rebooking', INTAKE), /is in the intake directory, and the header matched `disruption-rebooking`/)
+  assert.equal(check(two, 'disruption-rebooking', SPEC), '', 'a second spec does not change a match')
+  assert.match(check(two, 'disruption-rebooking', OTHER), /is under specs\/deck-planner\/, and the header matched `disruption-rebooking`/)
+
+  // One unrelated single spec: the intake path is required, and a spec path fails.
+  assert.equal(check(one, 'none matched (unrelated: disruption-rebooking)', INTAKE), '')
+  assert.match(check(one, 'none matched (unrelated: disruption-rebooking)', SPEC), /is inside a spec, and the header established `none matched \(unrelated: disruption-rebooking\)`/)
+  assert.equal(check(one, 'none matched (unclear: disruption-rebooking)', INTAKE), '')
+  assert.match(check(one, 'none matched (unclear: disruption-rebooking)', SPEC), /is inside a spec/)
+  assert.match(check(one, 'none', INTAKE), /is `none`, and the repository holds `disruption-rebooking`/, 'a spec that exists is named, matched or not')
+  assert.match(check(one, 'none', SPEC), /is inside a spec/)
+
+  // Several ambiguous specs: the intake path is required.
+  assert.equal(check(two, 'several (deck-planner, disruption-rebooking)', INTAKE), '')
+  assert.match(check(two, 'several (deck-planner, disruption-rebooking)', SPEC), /is inside a spec, and the header established `several/)
+  assert.equal(check(two, 'none matched (unrelated: deck-planner, disruption-rebooking)', INTAKE), '')
+  assert.match(check(two, 'none matched (unrelated: disruption-rebooking)', INTAKE), /leaves out `deck-planner`/)
+
+  // No spec, a spec that does not exist, a value outside the grammar, and an inline handoff with no path.
+  assert.equal(check([], 'none', INTAKE), '')
+  assert.match(check([], 'disruption-rebooking', SPEC), /names `disruption-rebooking`, and the repository holds no spec/)
+  assert.match(check(one, 'several (deck-planner, disruption-rebooking)', INTAKE), /names `deck-planner`/)
+  assert.match(check(one, 'the only spec', INTAKE), /none of the allowed forms/)
+  assert.equal(check(one, 'none matched (unrelated: disruption-rebooking)', undefined), '')
+  assert.match(check(one, 'none', undefined), /is `none`, and the repository holds/)
+})
+
+test('destination: apply reads the header of the run and the specs the repository held', () => {
+  const SPEC = 'specs/disruption-rebooking/handoffs/H004-2026-10-07-expiry-exception.md'
+  const INTAKE = 'handoffs/20261007-093012-boarding-manifest.md'
+  const run = (value, handoffPath, specs) => apply({ destination: true }, { doc: swap(good, 'Build Flow spec', value), handoffPath, specs })
+  assert.deepEqual(run('none', INTAKE, []), [])
+  assert.deepEqual(run('disruption-rebooking', SPEC, ['disruption-rebooking']), [])
+  assert.deepEqual(run('none matched (unrelated: disruption-rebooking)', INTAKE, ['disruption-rebooking']), [])
+  assert.equal(run('none matched (unrelated: disruption-rebooking)', SPEC, ['disruption-rebooking']).length, 1)
+  assert.equal(run('disruption-rebooking', INTAKE, ['disruption-rebooking']).length, 1)
+  assert.deepEqual(apply({ destination: true }, { doc: '', specs: [] }), ['no `Build Flow spec:` line to read'])
+})
+
 // --- inventory ------------------------------------------------------------------------------------------------------
 
 test('inventory: sections nest, and a heading inside a code block is not a heading', () => {
@@ -273,6 +357,74 @@ test('inventory: every item of every inventory is in the source it was taken fro
   }
 })
 
+// --- repetition ---------------------------------------------------------------------------------------------------
+
+const BADGES = `# Handoff: Availability badges
+Handoff. Evidence, not truth. Compiled by /handoff.
+Handoff id: 20261007-093012-availability-badges
+Depth: STANDARD
+
+## Approved decisions
+
+- A listing with 21 or more available days in the next 30 gets the top badge, labelled "Wide open". Vera decided this on Monday.
+
+## Data / APIs / contracts
+
+\`\`\`
+POST /calendar/v3/availability:batch
+\`\`\`
+
+- The snapshot table refreshes at 03:00 UTC and lags real time by up to 24h.
+- Maximum 50 listing ids per call.
+
+## Proposed / not yet approved
+
+- Middle band of 10 to 20 available days, labelled "Some dates left", proposed by Lin.
+
+## Testing / QA / proof expectations
+
+- Omar wants to load test the batch endpoint before committing to live computation.
+
+## Open questions
+
+- Is the middle band 10 to 20 days or 7 to 20, and is its label "Some dates left"?
+`
+
+test('repetition: a statement made twice is found, reworded or not, and different facts about one subject are not', () => {
+  assert.deepEqual(repeats(BADGES), [])
+  assert.deepEqual(repeats(small), [])
+  const again = repeats(`${BADGES}\n## Requirements\n\n- The snapshot table refreshes at 03:00 UTC and lags real time by up to 24h.\n`)
+  assert.equal(again.length, 1)
+  assert.equal(again[0].score, 1)
+  assert.match(again[0].first.section, /Data \/ APIs \/ contracts$/)
+  assert.match(again[0].second.section, /Requirements$/)
+  const reworded = repeats(`${BADGES}\n## Constraints\n\n- A listing with 21 or more available days in the next 30 gets the top badge, called "Wide open".\n`)
+  assert.equal(reworded.length, 1)
+  assert.ok(reworded[0].score >= 0.8 && reworded[0].score < 1, String(reworded[0].score))
+  const summary = '\n## Explicitly not asserted\n\n- The snapshot table refreshes at 03:00 UTC and lags real time by up to 24 hours.\n- A middle band of 10 to 20 available days, labelled "Some dates left", was proposed by Lin.\n- Vera decided that a listing with 21 or more available days in the next 30 gets the top badge, labelled "Wide open".\n'
+  assert.equal(repeats(BADGES + summary).length, 3, 'a closing summary of earlier sections is three repeats')
+})
+
+test('repetition: the header, headings, code, short lines, and the testing, acceptance and provenance sections are left out', () => {
+  const texts = statements(BADGES).map((s) => s.text).join('\n')
+  assert.doesNotMatch(texts, /Compiled by|Handoff id|POST \/calendar|Maximum 50|load test/)
+  assert.match(texts, /Wide open/)
+  assert.deepEqual(repeats(`${BADGES}\n## Source acceptance / expectations\n\n- The snapshot table refreshes at 03:00 UTC and lags real time by up to 24h.\n`), [], 'an acceptance item stays whole where it stands')
+  assert.deepEqual(repeats(`${BADGES}\n## Source provenance\n\n- The snapshot table refreshes at 03:00 UTC and lags real time by up to 24h.\n`), [])
+  assert.deepEqual(repeats(BADGES.replace('- Omar wants', '- Middle band of 10 to 20 available days, labelled "Some dates left", proposed by Lin.\n- Omar wants')), [], 'a testing item may restate')
+  assert.deepEqual(repeats(`${BADGES}\n## Constraints\n\n- Maximum 50 listing ids per call.\n`), [], 'under seven words is too little to compare')
+  assert.equal(repeats(BADGES, { alike: 0.3 }).length >= 1, true, 'the proposal and the question about it are alike only at a loose setting')
+})
+
+test('repetition: apply counts repeats in the body against the allowance', () => {
+  const twice = `${BADGES}\n## Requirements\n\n- The snapshot table refreshes at 03:00 UTC and lags real time by up to 24h.\n`
+  assert.equal(apply({ maxRepeats: 0 }, { doc: BADGES }), true)
+  assert.equal(apply({ maxRepeats: 1 }, { doc: twice }), true)
+  const found = apply({ maxRepeats: 0 }, { doc: twice })
+  assert.equal(found.length, 1)
+  assert.match(found[0], /snapshot table refreshes.*\(Data \/ APIs \/ contracts\).*\(Requirements\)/)
+})
+
 // --- receipt --------------------------------------------------------------------------------------------------------
 
 const receipt = (path, { depth = 'DEEP', baseline = '8f2c41d', mode = 'NEW', loss = 'NONE', ready = 'YES', next = true } = {}) =>
@@ -315,7 +467,7 @@ const caseNames = readdirSync(join(here, 'cases')).filter((f) => f.endsWith('.md
 
 test('checks.json: every case has checks, and every check is one known type with regexes that compile', () => {
   assert.deepEqual(Object.keys(checks).filter((k) => !['all', 'outside', 'file'].includes(k)).sort(), caseNames)
-  assert.ok(caseNames.length >= 31)
+  assert.ok(caseNames.length >= 33)
   for (const [name, list] of Object.entries(checks)) {
     for (const c of list) {
       const keys = Object.keys(c).filter((k) => k !== 'why')
@@ -326,6 +478,7 @@ test('checks.json: every case has checks, and every check is one known type with
       for (const p of patterns) assert.doesNotThrow(() => new RegExp(p, 'im'), `${name}: ${p}`)
       if (c.inventory) assert.ok(existsSync(join(here, 'inventory', `${c.inventory}.json`)), c.inventory)
       if (c.header) assert.deepEqual(Object.keys(c.header).filter((k) => !['depth', 'mode', 'spec', 'specs', 'previous', 'overlaps'].includes(k)), [], name)
+      if (c.header?.specs) assert.ok(['several', 'unrelated', 'unclear'].includes(c.header.spec), name)
       if (c.path) assert.deepEqual(Object.keys(c.path).filter((k) => !['kind', 'spec', 'n'].includes(k)), [], name)
     }
   }
@@ -334,7 +487,7 @@ test('checks.json: every case has checks, and every check is one known type with
 
 test('checks.json: a case inside a repository is a file case or says it is inline', () => {
   const repoCases = caseNames.filter((n) => existsSync(join(here, 'repos', n)))
-  assert.deepEqual(repoCases.map((n) => n.slice(0, 2)), ['22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32'])
+  assert.deepEqual(repoCases.map((n) => n.slice(0, 2)), ['22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33'])
   for (const name of repoCases) {
     const inline = checks[name].some((c) => c.writes === 'none')
     assert.equal(inline, name === '31-inline-in-repo', name)
@@ -366,7 +519,23 @@ test('the fixture repositories build as the cases describe them', () => {
   assert.deepEqual(files(named.cwd).filter((f) => f.startsWith('specs/')).sort(), files(project('30-two-specs').cwd).filter((f) => f.startsWith('specs/')).sort())
   assert.equal(read('cases', '32-two-specs-one-subject.md'), read('cases', '29-spec-store.md'), 'the same source as case 29, with a second spec beside it')
 
+  // Case 33 is case 29's repository with a source about another product area: one spec, and it does not match.
+  const lone = project('33-unrelated-single-spec')
+  assert.deepEqual(specsOf(lone.cwd), ['disruption-rebooking'])
+  assert.deepEqual(files(lone.cwd).sort(), files(one.cwd).sort())
+  assert.doesNotMatch(read('cases', '33-unrelated-single-spec.md'), /rebook|disruption|cancel|offer|TW-618/i, 'the source shares no subject noun with the spec')
+  assert.deepEqual(specsOf(plain.cwd), [])
+  assert.deepEqual(specsOf(one.cwd), ['disruption-rebooking'])
+
+  // The three routing outcomes each have a case that asserts the path and the header.
+  const routing = (name) => [checks[name].find((c) => c.path).path.kind, checks[name].find((c) => c.header).header.spec]
+  assert.deepEqual(routing('29-spec-store'), ['spec', 'disruption-rebooking'], 'one matching spec')
+  assert.deepEqual(routing('33-unrelated-single-spec'), ['intake', 'unrelated'], 'one unrelated single spec')
+  assert.deepEqual(routing('30-two-specs'), ['intake', 'several'], 'several ambiguous specs')
+  assert.deepEqual(routing('32-two-specs-one-subject'), ['spec', 'disruption-rebooking'], 'two specs, one named by the source')
+
   const two = project('30-two-specs')
+  assert.deepEqual(specsOf(two.cwd), ['deck-planner', 'disruption-rebooking'])
   assert.deepEqual(readdirSync(join(two.cwd, 'specs')).sort(), ['deck-planner', 'disruption-rebooking'])
   assert.ok(files(two.cwd).every((f) => !f.startsWith('handoffs/')))
   for (const f of files(one.cwd).filter((x) => x.startsWith('specs/'))) assert.equal(readFileSync(join(two.cwd, f), 'utf8'), readFileSync(join(one.cwd, f), 'utf8'), f)
