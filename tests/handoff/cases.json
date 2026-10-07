@@ -256,13 +256,14 @@
     },
     {
       "id": "delta",
-      "prompt": "The prior handoff and PRODUCT already settle import scope. This new note changes the expiry threshold and proposes, but does not approve, a new deduplication rule.",
+      "prompt": "The prior handoff and repository truth describe the supplier complaint queue and existing report. Preserve the attached new CSV-export approvals and API observation; nightly email delivery remains an unapproved proposal with unresolved external-sharing authority.",
       "setup": [
-        "Use fixtures/prior-evidence.md as immutable prior evidence and fixtures/delta-source.md as the new delta; provision referenced durable truth separately. Withhold fixtures/preservation-inventory.json judging expectations from the model."
+        "Use fixtures/prior-evidence.md as immutable prior evidence and fixtures/delta-source.md as the exact new delta. Provision PRODUCT.md with the existing complaint queue, reviewer role and current filtered report, and TECH.md with existing queue/logging/API facts. Withhold fixtures/delta-inventory.json from the author."
       ],
       "expect": [
-        "New append-only delta references prior evidence/truth.",
-        "Accepted threshold updates truth; proposal remains unresolved with provenance."
+        "New append-only delta references prior evidence/truth and preserves all eight meanings in fixtures/delta-inventory.json.",
+        "Approved CSV, current-filter preservation, UTF-8 names, dated filename and 10,000-row limit update durable truth; opaque-token API observation retains its status; nightly email remains a proposal and external-sharing choice remains unresolved.",
+        "The unresolved email policy does not block independent approved CSV scope; missing export-contract truth still blocks affected readiness."
       ],
       "forbid": [
         "Copy prior handoff wholesale.",

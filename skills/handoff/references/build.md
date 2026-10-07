@@ -67,6 +67,8 @@ Before marking READY, trace each acceptance predicate to recoverable truth. A re
 
 Reconcile index and section statuses together. A gate blocks only named dependents, and an unlanded prerequisite blocks only its dependents. Open choices do not freeze unrelated work. Do not build a DAG engine or scheduler; document relationships and inspect Git/forge state.
 
+Derive slices only from approved initiative scope. A diagnostic, defect observation or recommendation may require evidence capture or a resolution ticket, but does not authorize a new shipping slice. Do not add an unrelated fix to BUILD or invent dependencies merely because it could improve the same system. Missing scope authority blocks that proposed work while approved independent work remains available.
+
 Each slice is one logically complete, reviewable software PR, preferably a vertical tracer bullet with independent proof. Order enabling and risk-removing work before dependent complexity. Use expand/migrate/contract when external consumers or production data warrant it. Avoid "all database, then all backend, then all frontend" if a useful end-to-end slice can prove more sooner.
 
 BUILD supplies Goal, Done check, Proof wanted, Known and Constraints. It must not prescribe a PStack playbook, exact model, agent count, worker, worktree strategy, `architect`, `arena` or coding procedure. PStack owns how. Likely files orient the reader; they are not an instruction to retain a bad implementation shape.

@@ -1,0 +1,47 @@
+{
+  "source": "delta-source.md",
+  "materialDenominator": 8,
+  "items": [
+    {
+      "id": "csv",
+      "epistemicStatus": "approved",
+      "requiredMeaning": "CSV export of the existing report"
+    },
+    {
+      "id": "filters",
+      "epistemicStatus": "approved",
+      "requiredMeaning": "preserve current filters"
+    },
+    {
+      "id": "encoding",
+      "epistemicStatus": "approved",
+      "requiredMeaning": "preserve UTF-8 names"
+    },
+    {
+      "id": "filename",
+      "epistemicStatus": "approved",
+      "requiredMeaning": "supplier-report-YYYY-MM-DD.csv"
+    },
+    {
+      "id": "limit",
+      "epistemicStatus": "approved",
+      "requiredMeaning": "first release maximum 10,000 rows"
+    },
+    {
+      "id": "tokens",
+      "epistemicStatus": "observation",
+      "requiredMeaning": "pagination tokens are opaque and never parsed for offset"
+    },
+    {
+      "id": "email",
+      "epistemicStatus": "proposal",
+      "requiredMeaning": "automatic nightly email is unapproved"
+    },
+    {
+      "id": "sharing",
+      "epistemicStatus": "open",
+      "requiredMeaning": "external company email authority unresolved; do not block independent CSV scope"
+    }
+  ],
+  "duplicationBaseline": "prior-evidence.md and supplied PRODUCT/TECH remain references; prior bytes unchanged"
+}
