@@ -10,7 +10,7 @@ Claude Code skills I wrote and use. Each one does a single job that I was otherw
 
 | Skill | What it does | Invocation | Status |
 | --- | --- | --- | --- |
-| [`handoff`](skills/handoff/SKILL.md) | Compiles meeting notes, threads, specs and updates into a self-contained Markdown evidence packet. Noise goes, material detail stays. A proposal stays a proposal, a disagreement stays visible, and secrets stay out. Inside a Git repository it reads the project's status quo first. | `/handoff` | portable, explicit only |
+| [`handoff`](skills/handoff/SKILL.md) | Compiles meeting notes, threads, specs and updates into one self-contained Markdown evidence file. Noise goes, material detail stays. A proposal stays a proposal, a disagreement stays visible, and secrets stay out. Inside a Git repository it reads the project's status quo first, writes the file, and returns a short receipt. | `/handoff` | portable, explicit only |
 
 [`catalog.json`](catalog.json) lists every skill I have written, including the ones that live elsewhere: in their own repositories, or inside a larger system they depend on. Each entry says where the skill lives and why its source is not copied here.
 
@@ -35,18 +35,40 @@ Copy the directory instead of linking it if you would rather not track this repo
 
 ```text
 /handoff <paste notes, a thread, or file paths>
-/handoff and save it to docs/handoffs/pricing.md <material>
+/handoff --inline <material>
+/handoff save it to docs/handoffs/pricing.md <material>
+/handoff and run Build Flow <material>
 ```
+
+Inside a Git repository the first form writes one Markdown file and prints a receipt. `--inline` prints the handoff in chat and writes nothing. An explicit path wins over the storage rule. The last form writes the file, then starts the Build Flow with its path.
 
 `handoff` sets `disable-model-invocation: true`, so it runs only when you type it.
 
 ## How `/handoff` works
 
-`/handoff` is an evidence compiler, not a summarizer. It removes noise without removing material context: repetition and chatter collapse, and every distinct requirement, roadmap phase, implementation step, contract, dependency and open question stays.
+`/handoff` is not a summary. It is a persistent evidence boundary between messy human and project context and the Build Flow.
 
-- **Adaptive depth.** The skill picks the depth from how much unique material the source holds, not from its length. Small: one update or decision, shorter than a screen. Standard: a normal project handoff. Deep: several product areas, architecture, a roadmap or an implementation sequence, which can run to several thousand words.
-- **Self-containment.** The receiver should not need to reopen the source. References supplement the handoff and never stand in for content. If the source points at material that was not supplied, the handoff says so and ends with `Ready for Build Flow: NO`.
-- **Status quo first.** Inside a Git repository the skill does a bounded, read-only pass before writing: branch, revision, working tree, project documents, and the code on the surfaces the source touches. The handoff then opens with `Repository status quo` and reports the source as a delta: what already exists, what is new, what conflicts. What the code does is evidence, not approval. Outside a repository it works from the source alone.
+```text
+MESSY CONTEXT
+-> /handoff
+-> SELF-CONTAINED EVIDENCE FILE
+-> Build Flow
+-> CANONICAL TRUTH / READY
+-> PStack
+```
+
+`/handoff` records what was said, what exists, what was observed and what was proposed. The Build Flow decides what is authoritative and executable. PStack decides how ready work gets engineered. The handoff is rich enough that the Build Flow needs no original context, and never so opinionated that the Build Flow has nothing left to reconcile.
+
+It removes noise without removing material context: repetition and chatter collapse, and every distinct requirement, roadmap phase, implementation step, contract, testing expectation, dependency and open question stays.
+
+- **A file by default.** Inside a Git repository the handoff is written to disk. With exactly one Build Flow spec, or one the user names or the source itself is about, it goes to `specs/<id>/handoffs/H<nnn>-<YYYY-MM-DD>-<slug>.md`, numbered after the handoffs already there and never overwriting one. Otherwise it goes to the intake directory, `handoffs/<YYYYMMDD-HHMMSS>-<slug>.md`, and the Build Flow promotes it. The skill never weighs which of several specs fits better. Outside a repository, with no path given, there is nowhere to write, so the handoff is printed.
+- **A header from commands.** The file opens with plain `Label: value` lines: handoff id, created time, repository, branch, full baseline revision, working tree, depth, mode, previous handoff, spec, sources and their hashes, material information loss, and `Ready for Build Flow`. Each value comes from command output in that run.
+- **A receipt in chat.** Path, depth, baseline, mode, material information loss, the verdict, and the next command. `Ready for Build Flow: YES` means the file is self-contained enough for the Build Flow to start. It says nothing about engineering readiness.
+- **Adaptive depth.** The skill picks the depth from how much unique consequential material the source holds, not from its length. SMALL: one update or decision. STANDARD: a meaningful feature or update. DEEP: several systems, architecture, a roadmap or an implementation sequence, which can run to several thousand words.
+- **Self-containment.** A fresh session with only the repository and the file path must not need the original chat, notes or document. References supplement the handoff and never stand in for content. If the source points at material that was not supplied, the handoff says so and its verdict is `Ready for Build Flow: NO`.
+- **Status quo first.** Inside a Git repository the skill does a bounded pass before writing, read-only except for the handoff file: branch, revision, working tree, project documents, existing specs, and the code on the surfaces the source touches. The handoff reports the source as a delta against the committed baseline: what already exists, what is new, what conflicts. Uncommitted local changes are kept apart. What the code does is evidence, not approval.
+- **Two checks before writing.** Check A asks what the receiver would still have to recover from the original source. Check B asks whether the handoff decided anything the Build Flow should reconcile. Both must pass.
+- **No Build Flow or PStack output.** No truth documents, decision or ticket ids, readiness states, execution plan, playbook or model choice, and no test plan the source did not supply. A source's own roadmap or plan is carried under its own names, labelled as the source's.
 
 For a new project handoff, start from a clean default branch:
 
@@ -60,7 +82,7 @@ claude
 /handoff <material>
 ```
 
-Review the handoff, then run the Build Flow with it. `/handoff` stops after printing unless the invocation asks for the chain ("/handoff and run Build Flow"), and Build Flow still does its own reconciliation against the repository either way.
+Review the file, then run the Build Flow with its path, as the receipt says. `/handoff` stops after the receipt unless the invocation asks for the chain ("/handoff and run Build Flow"), and the Build Flow still does its own preflight and reconciliation against the repository either way.
 
 ## Structure
 
@@ -71,7 +93,7 @@ tests/handoff/           source fixtures, repository fixtures, property checks, 
 assets/                  banner
 ```
 
-`node tests/handoff/run.mjs` runs each fixture through `/handoff` with `claude -p` and checks properties of the result: an exact value survived, a proposal was not promoted to a decision, every roadmap phase kept its own entry, a repetitive transcript came out shorter than a dense spec, no secret leaked, nothing was written unless asked, and Git state was left untouched.
+`node tests/handoff/run.mjs` runs each fixture through `/handoff` with `claude -p` and checks properties of the result: an exact value survived, a proposal was not promoted to a decision, every roadmap phase kept its own entry, a repetitive transcript came out shorter than a dense spec, no secret leaked, nothing was written in inline mode or outside a repository with no path given, and inside a repository the one handoff file was the only change to Git state.
 
 ## Attribution
 
