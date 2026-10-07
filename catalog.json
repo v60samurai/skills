@@ -10,7 +10,7 @@
   "skills": [
     {
       "name": "handoff",
-      "description": "Compiles messy source material into a self-contained Markdown evidence packet that keeps material detail and each statement's epistemic status, and reads the repository's status quo first when run inside one.",
+      "description": "Compiles messy source material and the repository's status quo into one self-contained Markdown evidence file that keeps material detail and each statement's epistemic status. Inside a Git repository it writes the file and returns a short receipt.",
       "status": "portable",
       "publish_mode": "source",
       "canonical_owner": "skills/handoff",
