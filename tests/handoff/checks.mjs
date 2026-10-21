@@ -4,7 +4,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { checkHeader, checkDestination, parseHeader } from './header.mjs'
-import { lintHandoff, classifyPath } from './lint.mjs'
+import { lintHandoff, classifyPath, checkStatementIds } from './lint.mjs'
 import { inventory, within, repeats } from './inventory.mjs'
 
 const re = (s) => new RegExp(s, 'im')
@@ -30,12 +30,15 @@ export function checkReceipt(stdout, { path, doc, secret = false }) {
   used.add(at)
   if (lines[at + 1] === tick) used.add(at + 1); else bad.push(`the line after HANDOFF is not ${tick}`)
   let last = at + 1
-  const field = (label, check) => {
-    const i = lines.findIndex((l, k) => k > last && l.startsWith(`${label}:`))
-    if (i === -1) return bad.push(`no \`${label}:\` line after the previous receipt line`)
+  // `labels` are the slot's current label, then any older one a reader accepts.
+  const field = (labels, check) => {
+    const [slot] = labels = [labels].flat()
+    const i = lines.findIndex((l, k) => k > last && labels.some((x) => l.startsWith(`${x}:`)))
+    if (i === -1) return bad.push(`no \`${slot}:\` line after the previous receipt line`)
     used.add(i); last = i
+    const label = labels.find((x) => lines[i].startsWith(`${x}:`))
     const v = lines[i].slice(label.length + 1).trim()
-    const said = h.fields[label]?.[0]
+    const said = h.fields[slot]?.[0]
     const why = check(v, said)
     if (why) bad.push(`receipt \`${label}: ${v}\` ${why}`)
     return v
@@ -46,13 +49,7 @@ export function checkReceipt(stdout, { path, doc, secret = false }) {
   field('Baseline', (v, said) => (!/^[0-9a-f]{7,40}$/.test(v) ? 'is not a short revision' : said !== undefined && !said.startsWith(v) ? `is not the start of the file header \`${said}\`` : ''))
   field('Mode', same)
   field('Material information loss', level)
-  const ready = field('Ready for Build Flow', level)
-  if (typeof ready === 'string' && ready === 'YES') {
-    const tail = lines.slice(last + 1).join(' ')
-    const next = lines.findIndex((l, k) => k > last && l === 'Next:')
-    if (next === -1 || !tail.includes(`Next: Run the Build Flow using ${tick}`)) bad.push(`with YES the receipt ends \`Next:\`, \`Run the Build Flow using\`, ${tick}`)
-    else for (let k = next; k < lines.length && !lines.slice(next, k).join(' ').includes(tick); k++) used.add(k)
-  } else if (/run the build flow/i.test(stdout)) bad.push('the Next lines appear without `Ready for Build Flow: YES`')
+  field(['Evidence complete', 'Ready for Build Flow'], level)
   const extra = lines.filter((_, i) => !used.has(i))
   if (extra.length > (secret ? 1 : 0)) bad.push(`${extra.length} line(s) in the reply beyond the receipt${secret ? ' and the secret notice' : ''}: ${extra.slice(0, 3).map((l) => JSON.stringify(l.slice(0, 70))).join(', ')}`)
   if (secret && !extra.some((l) => /secret|credential|key|token|password/i.test(l))) bad.push('no one-line secret notice')
@@ -85,15 +82,16 @@ export function checkPath(relPath, want = {}, { start, end, now = Date.now() } =
 }
 
 export const TYPES = ['has', 'absent', 'inSection', 'notInSection', 'minCount', 'maxCount', 'sectionMinCount', 'shorterThan', 'maxRatio', 'maxChars',
-  'maxRepeats', 'writes', 'fileHas', 'git', 'stdoutHas', 'stdoutAbsent', 'path', 'header', 'destination', 'lint', 'receipt', 'inventory', 'inline']
+  'maxRepeats', 'writes', 'fileHas', 'git', 'stdoutHas', 'stdoutAbsent', 'path', 'header', 'destination', 'lint', 'receipt', 'inventory', 'inline',
+  'asks', 'statements']
 
 // Applies one check. Returns true, false, or a list of problems (empty passes).
 //
 // r is the finished run: out (stdout), doc (the handoff: the written file when
 // the case writes one, else stdout), source, cwd, written (new files), git
 // ({ unchanged, added }), handoffPath, expected (header values the run
-// measured), specs (ids of the Build Flow specs the repository held before the
-// run), start, end, outDir, here.
+// measured), specs (ids of the specs the repository held before the run),
+// start, end, outDir, here.
 export function apply(c, r) {
   const doc = r.doc ?? ''
   const size = bodyOf(doc).length
@@ -124,9 +122,18 @@ export function apply(c, r) {
   if (c.path) return checkPath(r.handoffPath, c.path, r)
   if (c.header) return r.doc ? checkHeader(doc.slice(Math.max(0, doc.search(/^# Handoff:/m))), { ...r.expected, ...c.header }) : ['no handoff to read']
   if (c.destination) {
-    const value = parseHeader(doc.slice(Math.max(0, doc.search(/^# Handoff:/m)))).fields['Build Flow spec']?.[0]
-    return value === undefined ? ['no `Build Flow spec:` line to read'] : checkDestination({ specs: r.specs ?? [], value, path: r.handoffPath })
+    const h = parseHeader(doc.slice(Math.max(0, doc.search(/^# Handoff:/m))))
+    const value = h.fields.Spec?.[0]
+    return value === undefined ? ['no `Spec:` line to read'] : checkDestination({ specs: r.specs ?? [], value, path: r.handoffPath, label: h.written.Spec })
   }
+  if (c.asks) {
+    // The spec is unknown, so the run asks which one before it writes: no file, no handoff, no receipt, every candidate named.
+    const bad = r.written.length ? [`wrote ${r.written.join(', ')}`] : []
+    if (/^# Handoff:/m.test(r.out) || /^\s*HANDOFF\s*$/m.test(r.out)) bad.push('the reply holds a handoff or a receipt, not a question')
+    for (const id of c.asks) if (!r.out.includes(id)) bad.push(`the question does not name \`${id}\``)
+    return bad
+  }
+  if (c.statements) return checkStatementIds(doc.slice(Math.max(0, doc.search(/^# Handoff:/m))))
   if (c.lint) return lintHandoff(doc).map((f) => `${f.rule}, line ${f.line}: ${f.text.slice(0, 80)}`)
   if (c.receipt) return checkReceipt(r.out, { path: r.handoffPath, doc, ...c.receipt })
   if (c.inline) return checkInline(r.out)

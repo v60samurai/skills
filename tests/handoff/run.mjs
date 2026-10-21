@@ -25,12 +25,14 @@
 // read the one new file at an allowed path, and the checks under "file" in
 // checks.json apply as well (path, Git state, header, lint, receipt). Every
 // repository case is also held to the destination check: the header's
-// `Build Flow spec:` value, the specs that exist and the path must agree. A case
+// `Spec:` value, the specs that exist and the path must agree. A case
 // that carries { "writes": "none" } is inline: the content checks read the
 // chat reply. A case that carries { "writes": "<path>" } names its own file. The checks
 // under "outside" apply to a case with no repository. A case that writes no
 // file is also held to the inline form: the reply opens on the title and no
-// receipt follows.
+// receipt follows. A case that carries { "asks": [<ids>] } expects the run to
+// ask which spec the source belongs to before writing anything, so only its
+// own checks apply.
 //
 // A case that cannot run is skipped, counted apart from the passes, and makes
 // the run fail.
@@ -62,7 +64,7 @@ function run(name, source, own) {
   const added = after ? after.untracked.filter((f) => !before.untracked.includes(f)) : []
   const same = !after || (before.head === after.head && before.branch === after.branch && before.rest === after.rest)
   const named = own.find((c) => typeof c.writes === 'string' && c.writes !== 'none')?.writes
-  const inline = own.some((c) => c.writes === 'none')
+  const inline = own.some((c) => c.writes === 'none' || c.asks)
   const fileMode = p.inRepo && !inline && !named
   const handoffPath = named ?? (fileMode ? written.find((f) => classifyPath(f)) : undefined)
   const doc = handoffPath ? (existsSync(join(p.cwd, handoffPath)) ? readFileSync(join(p.cwd, handoffPath), 'utf8') : '') : fileMode ? '' : out
@@ -92,8 +94,9 @@ for (const name of names) {
   const defaults = r.fileMode ? checks.file.filter((d) => !own.some((c) => Object.keys(d)[0] in c)) : []
   const printed = !r.fileMode && !r.handoffPath ? [{ inline: true, why: 'the reply is the handoff: the title first, no receipt after' }] : []
   // Inside a repository the header's spec line and the path the file took must agree with the specs that exist.
-  const routed = r.inRepo && !own.some((c) => typeof c.writes === 'string' && c.writes !== 'none') ? [{ destination: true, why: 'only a matched spec takes the file into its store; an unmatched or ambiguous one goes to intake' }] : []
-  const bad = [...checks.all, ...(r.inRepo ? [] : checks.outside), ...defaults, ...routed, ...printed, ...own].flatMap((c) => {
+  const routed = r.inRepo && !own.some((c) => typeof c.writes === 'string' && c.writes !== 'none') ? [{ destination: true, why: 'only a matched spec takes the file into its store; `none` goes to intake' }] : []
+  const asks = own.some((c) => c.asks)
+  const bad = (asks ? own : [...checks.all, ...(r.inRepo ? [] : checks.outside), ...defaults, ...routed, ...printed, ...own]).flatMap((c) => {
     const result = apply(c, r)
     return result === true || (Array.isArray(result) && !result.length) ? [] : [{ c, why: Array.isArray(result) ? result : [] }]
   })

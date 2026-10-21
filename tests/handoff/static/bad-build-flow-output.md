@@ -9,11 +9,11 @@ Working tree: clean
 Depth: DEEP
 Mode: NEW
 Previous handoff: none
-Build Flow spec: none
+Spec: none
 Sources: 1 (1 pasted)
 Source hashes: pasted text, not hashed
 Material information loss: NONE
-Ready for Build Flow: YES
+Evidence complete: YES
 
 ## Executive context
 
@@ -21,11 +21,11 @@ Mateus wrote a plan of record draft (v0.3) for a deck planner after two sessions
 
 ## Repository status quo
 
-- Harbor Desk is the internal operations console for Saltline Ferries (`README.md`). Agents look up sailings and bookings.
-- ALREADY EXISTS: vehicle classes and their lane metres in `src/rebooking/rebookingRules.ts` (`motorcycle` 1.0, `car` 4.5, `van` 6.0). They are used to filter sailings for a manual rebooking.
-- ALREADY EXISTS: remaining lane metres per sailing, read from `GET /v1/sailings/{sailing_id}/capacity` in `src/sailings/capacityClient.ts`.
-- NEW: the repository has no model of a vessel, a deck or a lane, no deck view, and no route under `/sailings/`.
-- No Build Flow spec and no earlier handoff exist in the repository.
+- S1. Harbor Desk is the internal operations console for Saltline Ferries (`README.md`). Agents look up sailings and bookings.
+- S2. ALREADY EXISTS: vehicle classes and their lane metres in `src/rebooking/rebookingRules.ts` (`motorcycle` 1.0, `car` 4.5, `van` 6.0). They are used to filter sailings for a manual rebooking.
+- S3. ALREADY EXISTS: remaining lane metres per sailing, read from `GET /v1/sailings/{sailing_id}/capacity` in `src/sailings/capacityClient.ts`.
+- S4. NEW: the repository has no model of a vessel, a deck or a lane, no deck view, and no route under `/sailings/`.
+- S5. No spec and no earlier handoff exist in the repository.
 
 ## Objective
 
@@ -33,13 +33,13 @@ Replace the paper deck plan, which the loadmaster draws about 40 minutes before 
 
 ## Confirmed facts
 
-- The first vessel is MV Tern: 2 vehicle decks (main deck and mezzanine), 14 lanes, 310 lane metres in total.
-- Harbor Desk knows every vehicle booking and its class and has no picture of the deck.
-- The car deck has no signal.
+- S6. The first vessel is MV Tern: 2 vehicle decks (main deck and mezzanine), 14 lanes, 310 lane metres in total.
+- S7. Harbor Desk knows every vehicle booking and its class and has no picture of the deck.
+- S8. The car deck has no signal.
 
 ## Approved decisions
 
-- Ingrid Solheim (head of port operations) approved phases 0 to 2 for this quarter.
+- S9. Ingrid Solheim (head of port operations) approved phases 0 to 2 for this quarter.
 
 ## Source roadmap
 
@@ -101,48 +101,48 @@ Stop printing the vehicle list once 60 consecutive sailings have run without any
 
 Status: Mateus's suggested order of work. The source says nobody has reviewed it.
 
-1. Photograph the 30 paper deck plans for MV Tern and transcribe them into `deck_plans_baseline.csv`.
-2. Define the `Vessel`, `Deck` and `Lane` types. A lane has `length_m`, `max_height_m` and `max_axle_load_t`.
-3. Seed MV Tern: 2 decks, 14 lanes, 310 lane metres.
-4. Write `DeckPlanRepository` with a fixture implementation that reads `fixtures/tern.json`.
-5. Build the read-only deck view at the route `/sailings/:sailingId/deck`.
-6. Colour each vehicle by class and add a legend.
-7. Add the height rule: refuse a placement when the vehicle is taller than the lane allows, with the message "Too tall for this lane".
-8. Add the axle-load rule for ramp B, 10 t per axle.
-9. Add the `adr_segregation` table and the adjacency rule. It cannot start before Runa sends the table.
-10. Write the first-fit suggestion. Draw a suggested vehicle with a dashed outline until the loadmaster confirms it.
-11. Build the tablet layout at 1024 px wide, with an offline cache and a banner "Offline since HH:MM".
-12. Subscribe to `vehicle.checked_in` on the topic `gate.events` and mark vehicles as arrived.
-13. Handle the tablet coming back online: last write wins per lane, and the planner lists every lane where two edits collided.
-14. Write the Trimline export, `trimline_export.csv`, with the columns `lane_id,vehicle_class,weight_kg,position_m`.
-15. Record the captain's go or no-go with name and time.
-16. Add the no-show reflow job at 20 minutes before departure.
-17. Build the utilisation report and the weekly email to Ingrid.
+1. S10. Photograph the 30 paper deck plans for MV Tern and transcribe them into `deck_plans_baseline.csv`.
+2. S11. Define the `Vessel`, `Deck` and `Lane` types. A lane has `length_m`, `max_height_m` and `max_axle_load_t`.
+3. S12. Seed MV Tern: 2 decks, 14 lanes, 310 lane metres.
+4. S13. Write `DeckPlanRepository` with a fixture implementation that reads `fixtures/tern.json`.
+5. S14. Build the read-only deck view at the route `/sailings/:sailingId/deck`.
+6. S15. Colour each vehicle by class and add a legend.
+7. S16. Add the height rule: refuse a placement when the vehicle is taller than the lane allows, with the message "Too tall for this lane".
+8. S17. Add the axle-load rule for ramp B, 10 t per axle.
+9. S18. Add the `adr_segregation` table and the adjacency rule. It cannot start before Runa sends the table.
+10. S19. Write the first-fit suggestion. Draw a suggested vehicle with a dashed outline until the loadmaster confirms it.
+11. S20. Build the tablet layout at 1024 px wide, with an offline cache and a banner "Offline since HH:MM".
+12. S21. Subscribe to `vehicle.checked_in` on the topic `gate.events` and mark vehicles as arrived.
+13. S22. Handle the tablet coming back online: last write wins per lane, and the planner lists every lane where two edits collided.
+14. S23. Write the Trimline export, `trimline_export.csv`, with the columns `lane_id,vehicle_class,weight_kg,position_m`.
+15. S24. Record the captain's go or no-go with name and time.
+16. S25. Add the no-show reflow job at 20 minutes before departure.
+17. S26. Build the utilisation report and the weekly email to Ingrid.
 
 ## Milestones
 
-- M1 covers phases 0 to 2. It is READY.
-- DQ1: does a motorcycle take a lane position?
-- D4: first fit is the placement rule.
-- The first READY ticket is the vessel model. Use the Feature playbook in a fresh worktree, and use Grok for the deck view.
-- This handoff will create PRODUCT.md and TECH.md for the deck planner.
-- We should start with the tablet view, and therefore the implementation will use a service worker.
+- S27. M1 covers phases 0 to 2. It is READY.
+- S28. DQ1: does a motorcycle take a lane position?
+- S29. D4: first fit is the placement rule.
+- S30. The first READY ticket is the vessel model. Use the Feature playbook in a fresh worktree, and use Grok for the deck view.
+- S31. This handoff will create PRODUCT.md and TECH.md for the deck planner.
+- S32. We should start with the tablet view, and therefore the implementation will use a service worker.
 
 ## Dependencies / owners
 
-- The ADR segregation table. Owner: Runa, safety officer. Not supplied yet.
-- The gate scanner events on `gate.events`. The source names no owner.
-- Trimline, the stability software. The source names no owner.
+- S33. The ADR segregation table. Owner: Runa, safety officer. Not supplied yet.
+- S34. The gate scanner events on `gate.events`. The source names no owner.
+- S35. Trimline, the stability software. The source names no owner.
 
 ## Open questions
 
-- Does a motorcycle take a lane position, or can two share one? The loadmasters disagree.
-- Who owns the vessel model when a vessel is refitted? The source says nobody has said.
-- Is 40 minutes offline enough on the Holm crossing, which takes 55 minutes?
+- S36. Does a motorcycle take a lane position, or can two share one? The loadmasters disagree.
+- S37. Who owns the vessel model when a vessel is refitted? The source says nobody has said.
+- S38. Is 40 minutes offline enough on the Holm crossing, which takes 55 minutes?
 
 ## Out of scope
 
-- Passenger seating, foot-passenger boarding and freight invoicing.
+- S39. Passenger seating, foot-passenger boarding and freight invoicing.
 
 ## Source provenance
 
@@ -152,8 +152,8 @@ Status: Mateus's suggested order of work. The source says nobody has reviewed it
 
 ## Explicitly not asserted
 
-- That phases 3 to 12 are approved. The source says they are not.
-- That the order of work is agreed. The source says nobody has reviewed it.
+- S40. That phases 3 to 12 are approved. The source says they are not.
+- S41. That the order of work is agreed. The source says nobody has reviewed it.
 
 Ready for Build Flow: YES
 

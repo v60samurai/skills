@@ -2,16 +2,17 @@
   "all": [
     { "absent": "^#+ .*(tickets?|milestones?|implementation plan|execution plan|next steps|action items|recommendations?)\\b", "why": "no planning sections" },
     { "absent": "\\bDQ-?\\d+", "why": "no decision-queue ids" },
-    { "has": "^# Handoff", "why": "handoff title" }
+    { "has": "^# Handoff", "why": "handoff title" },
+    { "statements": true, "why": "every statement carries a permanent id, S1 to Sn, in order" }
   ],
   "outside": [
-    { "absent": "EXECUTION\\.md|PRODUCT\\.md|TECH\\.md|DESIGN\\.md", "why": "outside a repository no Build Flow document exists to report, so any mention is invented. Inside one, the repository pass may name the documents it found or did not find, and the lint rule build-flow-document catches creating one" }
+    { "absent": "EXECUTION\\.md|PRODUCT\\.md|TECH\\.md|DESIGN\\.md", "why": "outside a repository no planning document exists to report, so any mention is invented. Inside one, the repository pass may name the documents it found or did not find, and the lint rule build-flow-document catches creating one" }
   ],
   "file": [
     { "path": {}, "why": "the file is at specs/<id>/handoffs/H<nnn>-<YYYY-MM-DD>-<slug>.md or handoffs/<YYYYMMDD-HHMMSS>-<slug>.md" },
     { "git": "one-new-file", "why": "HEAD, branch, index, tracked files and stash unchanged, and exactly one new untracked file at an allowed path" },
     { "header": {}, "why": "every label once and in order, values from this run" },
-    { "lint": true, "why": "no red flag and nothing that belongs to the Build Flow or PStack" },
+    { "lint": true, "why": "no red flag and no planning that belongs to the receiver or PStack" },
     { "receipt": {}, "why": "chat holds the receipt and nothing else" }
   ],
   "01-repetitive-meeting": [
@@ -207,7 +208,7 @@
     { "inSection": ["acceptance|testing", "date range and comparison|keeps the date range"], "why": "checklist item survives" },
     { "maxCount": ["Ask Tideline is (not in|out of) V1", 2], "why": "repeated statement collapsed" },
     { "absent": "(see|refer to|consult|described in|detailed in|available in) (the )?(original|source|transcript|write-?up|meeting notes?)( document| notes| file| material)?\\b[^.\\n]{0,40}\\b(for|details)", "why": "no pointer standing in for content" },
-    { "has": "Ready for Build Flow: YES" },
+    { "has": "Evidence complete: YES" },
     { "writes": "none" }
   ],
   "15-tiny-update": [
@@ -332,12 +333,12 @@
     { "minCount": ["^\\s*\\d+\\. \\S", 9], "why": "nine cutover steps enumerated" },
     { "has": "expired points" },
     { "absent": "(see|refer to|consult|described in|detailed in|available in) (the )?(original|source|transcript|write-?up|meeting notes?)( document| notes| file| material)?\\b[^.\\n]{0,40}\\b(for|details)", "why": "no pointer standing in for content" },
-    { "has": "Ready for Build Flow: YES" },
+    { "has": "Evidence complete: YES" },
     { "writes": "none" }
   ],
   "21-external-reference-missing": [
-    { "has": "Ready for Build Flow: NO", "why": "does not pretend self-containment" },
-    { "absent": "Ready for Build Flow: YES" },
+    { "has": "Evidence complete: NO", "why": "does not pretend self-containment" },
+    { "absent": "Evidence complete: YES" },
     { "has": "^#+ Missing source material" },
     { "inSection": ["missing source", "Loyalty Migration Runbook v3"] },
     { "has": "15 minutes" },
@@ -493,17 +494,8 @@
     { "stdoutHas": "H004" }
   ],
   "30-two-specs": [
-    { "path": { "kind": "intake" }, "why": "the loading table bears on both specs about equally, so the match is ambiguous and the file goes to the intake directory" },
-    { "header": { "spec": "several", "specs": ["deck-planner", "disruption-rebooking"] }, "why": "never choose between specs" },
-    { "has": "4\\.8" },
-    { "has": "6\\.5" },
-    { "has": "campervan" },
-    { "has": "7\\.5" },
-    { "has": "1 November" },
-    { "has": "\\b68\\b" },
-    { "has": "\\b64\\b" },
-    { "inSection": ["status quo", "4\\.5"], "why": "the committed figure" },
-    { "inSection": ["open question", "reclassif|campervan"], "why": "open question kept" }
+    { "asks": ["deck-planner", "disruption-rebooking"], "why": "the loading table bears on both specs about equally, so the target spec is unknown: the run asks which one, naming both, and writes nothing yet" },
+    { "git": "unchanged", "why": "nothing is written before the answer" }
   ],
   "31-inline-in-repo": [
     { "writes": "none", "why": "--inline writes nothing" },
@@ -528,7 +520,7 @@
   ],
   "33-unrelated-single-spec": [
     { "path": { "kind": "intake" }, "why": "one spec exists, about disruption rebooking, and the source is about a boarding manifest at the gate. Being the only spec is not a match, so the file goes to the intake directory" },
-    { "header": { "mode": "NEW", "spec": "unrelated", "specs": ["disruption-rebooking"] }, "why": "the header says a spec exists and did not match" },
+    { "header": { "mode": "NEW", "spec": "none" }, "why": "the one spec is about another product area, so the target is known to be none of them" },
     { "absent": "^Handoff id: H\\d", "why": "no spec number is taken" },
     { "fileHas": ["specs/disruption-rebooking/handoffs/H002-2026-09-25-offer-expiry-and-priority-order.md", "^Handoff id: H002$"], "why": "the spec's store is as it was" },
     { "has": "Print manifest" },

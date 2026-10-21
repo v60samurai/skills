@@ -68,7 +68,7 @@ export function statements(text, { exempt = EXEMPT, floor = 7 } = {}) {
     const h = /^(#{1,6})\s+(.*)/.exec(raw)
     if (h) { trail = [...trail.filter((t) => t.level < h[1].length), { level: h[1].length, title: h[2] }]; continue }
     if (!trail.some((t) => t.level >= 2) || trail.some((t) => skip.test(t.title)) || /^\s*\|/.test(raw)) continue
-    const line = raw.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, '').replace(/^\s*>\s?/, '')
+    const line = raw.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, '').replace(/^\s*>\s?/, '').replace(/^S\d+\.\s+/, '')
     for (const sentence of line.split(/(?<=[.?!])\s+(?=[A-Z0-9`"*])/)) {
       const w = words(sentence)
       if (w.length >= floor) out.push({ section: trail.map((t) => t.title).join(' > '), text: sentence.trim(), set: new Set(w) })

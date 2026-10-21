@@ -1,15 +1,18 @@
 // The header of a /handoff file: the title, one fixed line, then fourteen
 // `Label: value` lines, each once and in this order, before the first `##`.
-// No YAML frontmatter and no `---` line, because the Build Flow reads the text
-// before the first `---` as the header.
+// No YAML frontmatter and no `---` line, because readers take the text before
+// the first `---` as the header.
 import { SECRET, classifyPath } from './lint.mjs'
 
 export const BANNER = 'Handoff. Evidence, not truth. Compiled by /handoff.'
 export const LABELS = ['Handoff id', 'Created', 'Repository', 'Branch', 'Baseline', 'Working tree', 'Depth', 'Mode', 'Previous handoff',
-  'Build Flow spec', 'Sources', 'Source hashes', 'Material information loss', 'Ready for Build Flow']
+  'Spec', 'Sources', 'Source hashes', 'Material information loss', 'Evidence complete']
+// Older handoffs carry these labels in the same slots. A reader accepts either
+// label for its slot, and a file that carries both has the slot twice.
+export const OLDER = { 'Build Flow spec': 'Spec', 'Ready for Build Flow': 'Evidence complete' }
 
 const TITLE = /^# Handoff: (\S.*)$/
-const labelOf = (line) => LABELS.find((l) => line.startsWith(`${l}:`))
+const labelOf = (line) => [...LABELS, ...Object.keys(OLDER)].find((l) => line.startsWith(`${l}:`))
 
 // Everything before the first `##` heading, read into fields. A text with no
 // `# Handoff:` line has a null title.
@@ -18,58 +21,61 @@ export function parseHeader(text) {
   const end = lines.findIndex((l) => /^##\s/.test(l))
   const head = end === -1 ? lines : lines.slice(0, end)
   const at = head.findIndex((l) => TITLE.test(l))
-  const fields = {}, order = [], extra = []
+  const fields = {}, order = [], extra = [], written = {}
   let banner = false
   head.forEach((line, i) => {
     if (i === at || line.trim() === '') return
     const label = i > at && at !== -1 ? labelOf(line) : null
-    if (label) { (fields[label] ??= []).push(line.slice(label.length + 1).trim()); order.push(label) }
+    if (label) { const slot = OLDER[label] ?? label; (fields[slot] ??= []).push(line.slice(label.length + 1).trim()); order.push(slot); (written[slot] ??= label) }
     else if (i > at && at !== -1 && line.trim() === BANNER) banner = true
     else extra.push({ line: i + 1, text: line })
   })
   const rule = head.findIndex((l) => l.trim() === '---')
-  return { title: at === -1 ? null : TITLE.exec(head[at])[1].trim(), banner, fields, order, extra, rule: rule === -1 ? null : rule + 1,
+  return { title: at === -1 ? null : TITLE.exec(head[at])[1].trim(), banner, fields, order, extra, written, rule: rule === -1 ? null : rule + 1,
     head: head.join('\n'), body: end === -1 ? '' : lines.slice(end).join('\n') }
 }
 
 const get = (h, label) => h.fields[label]?.[0]
+// The label a slot was written under: the current one, or the older one.
+const named = (h, slot) => h.written[slot] ?? slot
 
-// The five forms of `Build Flow spec:`, read into what the handoff says it
-// established. Anything else is null.
+// The forms of the spec line, read into what the handoff says it established.
+// Anything else is null. `Spec:` has two forms:
 //   <id>                             { kind: 'matched', ids: [id] }
 //   none                             { kind: 'none', ids: [] }
+// An older handoff's `Build Flow spec:` has three more:
 //   none matched (unrelated: <ids>)  { kind: 'unrelated', ids }
 //   none matched (unclear: <ids>)    { kind: 'unclear', ids }
 //   several (<ids>)                  { kind: 'several', ids }, two ids or more
 const ID = '[A-Za-z0-9][A-Za-z0-9._-]*'
 const IDS = `${ID}(?:, ${ID})*`
-export function specValue(value) {
+export function specValue(value, label = 'Spec') {
   const v = String(value ?? '')
   if (v === 'none') return { kind: 'none', ids: [] }
-  let m = new RegExp(`^none matched \\((unrelated|unclear): (${IDS})\\)$`).exec(v)
-  if (m) return { kind: m[1], ids: m[2].split(', ') }
-  m = new RegExp(`^several \\((${ID}, ${IDS})\\)$`).exec(v)
-  if (m) return { kind: 'several', ids: m[1].split(', ') }
+  if (label === 'Build Flow spec') {
+    let m = new RegExp(`^none matched \\((unrelated|unclear): (${IDS})\\)$`).exec(v)
+    if (m) return { kind: m[1], ids: m[2].split(', ') }
+    m = new RegExp(`^several \\((${ID}, ${IDS})\\)$`).exec(v)
+    if (m) return { kind: 'several', ids: m[1].split(', ') }
+  }
   return new RegExp(`^${ID}$`).test(v) && !['none', 'several', 'unrelated', 'unclear', 'matched'].includes(v.toLowerCase()) ? { kind: 'matched', ids: [v] } : null
 }
 
-// Whether the header's `Build Flow spec:` value, the specs the repository
-// holds and the path the file took agree. `specs` are the ids of the Build
-// Flow specs that existed before the run. `path` is where the handoff was
-// written, or undefined for an inline handoff. Only a matched spec takes the
-// file into a spec's store: an unmatched or ambiguous one goes to intake,
-// however many specs exist.
-export function checkDestination({ specs = [], value, path }) {
-  const said = specValue(value)
-  if (!said) return [`\`Build Flow spec:\` is \`${value}\`, which is none of the allowed forms`]
+// Whether the header's spec line, the specs the repository holds and the path
+// the file took agree. `specs` are the ids of the specs that existed before
+// the run. `path` is where the handoff was written, or undefined for an inline
+// handoff. Only a matched spec takes the file into a spec's store. `none` goes
+// to intake, whether no spec exists or none of them matched.
+export function checkDestination({ specs = [], value, path, label = 'Spec' }) {
+  const said = specValue(value, label)
+  if (!said) return [`\`${label}:\` is \`${value}\`, which is none of the allowed forms`]
   const bad = []
   const where = path === undefined ? null : classifyPath(path)
   const missing = said.ids.filter((id) => !specs.includes(id))
-  if (missing.length) bad.push(`\`Build Flow spec:\` names \`${missing.join('`, `')}\`, and the repository holds ${specs.length ? `\`${specs.join('`, `')}\`` : 'no spec'}`)
-  if (said.kind === 'none' && specs.length) bad.push(`\`Build Flow spec:\` is \`none\`, and the repository holds \`${specs.join('`, `')}\`: say whether they are unrelated, unclear or several`)
+  if (missing.length) bad.push(`\`${label}:\` names \`${missing.join('`, `')}\`, and the repository holds ${specs.length ? `\`${specs.join('`, `')}\`` : 'no spec'}`)
   if (['unrelated', 'unclear'].includes(said.kind)) {
     const left = specs.filter((id) => !said.ids.includes(id))
-    if (left.length) bad.push(`\`Build Flow spec:\` says none matched and leaves out \`${left.join('`, `')}\``)
+    if (left.length) bad.push(`\`${label}:\` says none matched and leaves out \`${left.join('`, `')}\``)
   }
   if (where?.kind === 'spec') {
     if (said.kind !== 'matched') bad.push(`${path} is inside a spec, and the header established \`${value}\`: without one matching spec the file goes to the intake directory`)
@@ -90,18 +96,19 @@ const SHAPES = {
   Depth: (v) => /^(SMALL|STANDARD|DEEP)$/.test(v) || 'is SMALL, STANDARD or DEEP',
   Mode: (v) => /^(NEW|DELTA)$/.test(v) || 'is NEW or DELTA',
   'Previous handoff': (v) => v.length > 0 || 'is a path or `none`',
-  'Build Flow spec': (v) => specValue(v) !== null || 'is a spec id, `none`, `none matched (unrelated: <ids>)`, `none matched (unclear: <ids>)` or `several (<ids>)`',
+  Spec: (v, label) => specValue(v, label) !== null || (label === 'Spec' ? 'is a spec id or `none`'
+    : 'is a spec id, `none`, `none matched (unrelated: <ids>)`, `none matched (unclear: <ids>)` or `several (<ids>)`'),
   Sources: (v) => /^\d+\b/.test(v) || 'starts with the count',
   'Source hashes': (v) => v.split(/;\s*/).every((p) => HASH_PART.test(p.trim())) || 'is `<path> sha256 <64 hex>` entries or `pasted text, not hashed`',
   'Material information loss': (v) => /^(NONE|(LOW|HIGH): \S.*)$/.test(v) || 'is NONE, `LOW: <what>` or `HIGH: <what>`',
-  'Ready for Build Flow': (v) => /^(YES|NO: \S.*)$/.test(v) || 'is YES or `NO: <the evidence still missing>`',
+  'Evidence complete': (v) => /^(YES|NO: \S.*)$/.test(v) || 'is YES or `NO: <the evidence still missing>`',
 }
 
 // Problems with the header, as sentences. An empty list means it conforms.
 // `expected` carries what the run measured: repository (a name or a list of
 // acceptable names), branch, head, dirty, overlaps, depth, mode, previous (a
-// regex), spec (an id, `none`, `several`, `unrelated` or `unclear`), specs (ids
-// a `several`, `unrelated` or `unclear` value must name), path (where the storage rule put the file), notBefore and notAfter (ms).
+// regex), spec (an id or `none`), path (where the storage rule put the file),
+// notBefore and notAfter (ms).
 export function checkHeader(text, expected = {}) {
   const h = parseHeader(text)
   const bad = []
@@ -109,18 +116,19 @@ export function checkHeader(text, expected = {}) {
   if (h.rule !== null) bad.push(`line ${h.rule} is \`---\` before the first \`##\` heading`)
   if (!h.banner) bad.push(`missing the line \`${BANNER}\``)
   for (const x of h.extra) if (x.text.trim() !== '---') bad.push(`line ${x.line} is not part of the header: ${x.text.trim().slice(0, 60)}`)
-  for (const label of LABELS) {
-    const n = h.fields[label]?.length ?? 0
+  for (const slot of LABELS) {
+    const n = h.fields[slot]?.length ?? 0
+    const label = named(h, slot)
     if (n === 0) bad.push(`missing label \`${label}:\``)
     else if (n > 1) bad.push(`label \`${label}:\` appears ${n} times`)
-    else { const ok = SHAPES[label](get(h, label)); if (ok !== true) bad.push(`\`${label}:\` ${ok}, got \`${get(h, label)}\``) }
+    else { const ok = SHAPES[slot](get(h, slot), label); if (ok !== true) bad.push(`\`${label}:\` ${ok}, got \`${get(h, slot)}\``) }
   }
   const seen = h.order.filter((l, i) => h.order.indexOf(l) === i)
   if (seen.join('|') !== LABELS.filter((l) => seen.includes(l)).join('|')) bad.push(`labels out of order: ${seen.join(', ')}`)
   if (/^sha256:/m.test(h.head)) bad.push('the header carries a hash of the file itself')
   if (SECRET.test(h.head)) bad.push('the header carries a credential shape')
 
-  const want = (label, value, say = (v) => v) => { if (value !== undefined && get(h, label) !== undefined && get(h, label) !== value) bad.push(`\`${label}:\` is \`${get(h, label)}\`, the run measured \`${say(value)}\``) }
+  const want = (slot, value) => { if (value !== undefined && get(h, slot) !== undefined && get(h, slot) !== value) bad.push(`\`${named(h, slot)}:\` is \`${get(h, slot)}\`, the run measured \`${value}\``) }
   if (expected.repository !== undefined && get(h, 'Repository') !== undefined && ![expected.repository].flat().includes(get(h, 'Repository'))) {
     bad.push(`\`Repository:\` is \`${get(h, 'Repository')}\`, the repository is \`${[expected.repository].flat().join('` or `')}\``)
   }
@@ -133,13 +141,7 @@ export function checkHeader(text, expected = {}) {
   if (expected.overlaps !== undefined && tree !== undefined && !tree.endsWith(`overlaps the subject: ${expected.overlaps}`)) bad.push(`\`Working tree:\` is \`${tree}\`, expected overlaps the subject: ${expected.overlaps}`)
   const prev = get(h, 'Previous handoff')
   if (expected.previous !== undefined && prev !== undefined && !new RegExp(expected.previous).test(prev)) bad.push(`\`Previous handoff:\` is \`${prev}\`, expected /${expected.previous}/`)
-  const spec = get(h, 'Build Flow spec')
-  if (['several', 'unrelated', 'unclear'].includes(expected.spec) && spec !== undefined) {
-    const said = specValue(spec)
-    const form = expected.spec === 'several' ? 'several (<ids>)' : `none matched (${expected.spec}: <ids>)`
-    if (said?.kind !== expected.spec) bad.push(`\`Build Flow spec:\` is \`${spec}\`, expected \`${form}\``)
-    for (const id of expected.specs ?? []) if (!said?.ids.includes(id)) bad.push(`\`Build Flow spec:\` does not name \`${id}\``)
-  } else want('Build Flow spec', expected.spec)
+  want('Spec', expected.spec)
   const created = Date.parse(get(h, 'Created') ?? '')
   if (!Number.isNaN(created) && ((expected.notBefore !== undefined && created < expected.notBefore) || (expected.notAfter !== undefined && created > expected.notAfter))) {
     bad.push(`\`Created:\` is \`${get(h, 'Created')}\`, outside the run (${new Date(expected.notBefore ?? 0).toISOString()} to ${new Date(expected.notAfter ?? 0).toISOString()})`)
@@ -147,7 +149,7 @@ export function checkHeader(text, expected = {}) {
   if (expected.path !== undefined && get(h, 'Handoff id') !== undefined) {
     const where = classifyPath(expected.path)
     if (where) want('Handoff id', where.id)
-    if (where?.kind === 'spec') want('Build Flow spec', where.spec)
+    if (where?.kind === 'spec') want('Spec', where.spec)
   }
   return bad
 }

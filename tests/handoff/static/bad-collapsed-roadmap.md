@@ -9,11 +9,11 @@ Working tree: clean
 Depth: DEEP
 Mode: NEW
 Previous handoff: none
-Build Flow spec: none
+Spec: none
 Sources: 1 (1 pasted)
 Source hashes: pasted text, not hashed
 Material information loss: NONE
-Ready for Build Flow: YES
+Evidence complete: YES
 
 ## Executive context
 
@@ -21,11 +21,11 @@ Mateus wrote a plan of record draft (v0.3) for a deck planner after two sessions
 
 ## Repository status quo
 
-- Harbor Desk is the internal operations console for Saltline Ferries (`README.md`). Agents look up sailings and bookings.
-- ALREADY EXISTS: vehicle classes and their lane metres in `src/rebooking/rebookingRules.ts` (`motorcycle` 1.0, `car` 4.5, `van` 6.0). They are used to filter sailings for a manual rebooking.
-- ALREADY EXISTS: remaining lane metres per sailing, read from `GET /v1/sailings/{sailing_id}/capacity` in `src/sailings/capacityClient.ts`.
-- NEW: the repository has no model of a vessel, a deck or a lane, no deck view, and no route under `/sailings/`.
-- No Build Flow spec and no earlier handoff exist in the repository.
+- S1. Harbor Desk is the internal operations console for Saltline Ferries (`README.md`). Agents look up sailings and bookings.
+- S2. ALREADY EXISTS: vehicle classes and their lane metres in `src/rebooking/rebookingRules.ts` (`motorcycle` 1.0, `car` 4.5, `van` 6.0). They are used to filter sailings for a manual rebooking.
+- S3. ALREADY EXISTS: remaining lane metres per sailing, read from `GET /v1/sailings/{sailing_id}/capacity` in `src/sailings/capacityClient.ts`.
+- S4. NEW: the repository has no model of a vessel, a deck or a lane, no deck view, and no route under `/sailings/`.
+- S5. No spec and no earlier handoff exist in the repository.
 
 ## Objective
 
@@ -33,13 +33,13 @@ Replace the paper deck plan, which the loadmaster draws about 40 minutes before 
 
 ## Confirmed facts
 
-- The first vessel is MV Tern: 2 vehicle decks (main deck and mezzanine), 14 lanes, 310 lane metres in total.
-- Harbor Desk knows every vehicle booking and its class and has no picture of the deck.
-- The car deck has no signal.
+- S6. The first vessel is MV Tern: 2 vehicle decks (main deck and mezzanine), 14 lanes, 310 lane metres in total.
+- S7. Harbor Desk knows every vehicle booking and its class and has no picture of the deck.
+- S8. The car deck has no signal.
 
 ## Approved decisions
 
-- Ingrid Solheim (head of port operations) approved phases 0 to 2 for this quarter.
+- S9. Ingrid Solheim (head of port operations) approved phases 0 to 2 for this quarter.
 
 ## Source roadmap
 
@@ -55,19 +55,19 @@ A 17-step order of work exists.
 
 ## Dependencies / owners
 
-- The ADR segregation table. Owner: Runa, safety officer. Not supplied yet.
-- The gate scanner events on `gate.events`. The source names no owner.
-- Trimline, the stability software. The source names no owner.
+- S10. The ADR segregation table. Owner: Runa, safety officer. Not supplied yet.
+- S11. The gate scanner events on `gate.events`. The source names no owner.
+- S12. Trimline, the stability software. The source names no owner.
 
 ## Open questions
 
-- Does a motorcycle take a lane position, or can two share one? The loadmasters disagree.
-- Who owns the vessel model when a vessel is refitted? The source says nobody has said.
-- Is 40 minutes offline enough on the Holm crossing, which takes 55 minutes?
+- S13. Does a motorcycle take a lane position, or can two share one? The loadmasters disagree.
+- S14. Who owns the vessel model when a vessel is refitted? The source says nobody has said.
+- S15. Is 40 minutes offline enough on the Holm crossing, which takes 55 minutes?
 
 ## Out of scope
 
-- Passenger seating, foot-passenger boarding and freight invoicing.
+- S16. Passenger seating, foot-passenger boarding and freight invoicing.
 
 ## Source provenance
 
@@ -77,5 +77,5 @@ A 17-step order of work exists.
 
 ## Explicitly not asserted
 
-- That phases 3 to 12 are approved. The source says they are not.
-- That the order of work is agreed. The source says nobody has reviewed it.
+- S17. That phases 3 to 12 are approved. The source says they are not.
+- S18. That the order of work is agreed. The source says nobody has reviewed it.

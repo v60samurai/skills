@@ -1,7 +1,7 @@
-// Static red flags in a handoff, and the two paths a handoff file may take.
-// No model runs here. A finding means the handoff carries something that
-// belongs to the Build Flow or to PStack, points at the source in place of
-// content, or holds a credential.
+// Static red flags in a handoff, its statement ids, and the two paths a
+// handoff file may take. No model runs here. A finding means the handoff
+// carries planning that belongs to its receiver or to PStack, points at the
+// source in place of content, or holds a credential.
 //
 // Text the handoff quotes is left alone: fenced code, inline code, block
 // quotes, double-quoted spans, and lines labelled as source material
@@ -26,13 +26,13 @@ export const RULES = [
   { id: 'ticket-id', why: 'ticket id', re: /(?<![A-Za-z0-9])M\d+-T\d*/ },
   { id: 'milestone-id', why: 'milestone id', re: /(?<![A-Za-z0-9-])M\d{1,2}(?!-T|[A-Za-z0-9])/ },
   { id: 'decision-queue-id', why: 'decision-queue id', re: /(?<![A-Za-z0-9])DQ-?\d+/ },
-  { id: 'decision-id', why: 'decision id', re: /(?<![A-Za-z0-9-])D\d{1,3}(?![A-Za-z0-9-])/ },
-  { id: 'ready-ticket', why: 'readiness belongs to the Build Flow', re: /\bREADY tickets?\b/i },
-  { id: 'state', why: 'READY, BLOCKED and DONE are Build Flow states', re: /(?<![A-Za-z_])(READY|BLOCKED|DONE)(?![A-Za-z_])/ },
-  { id: 'execution', why: 'Build Flow output', re: /\bexecution DAG\b|\bready frontier\b|\bEngineering Objective\b|\bEXPECTED PROOF\b/i },
-  { id: 'build-flow-document', why: 'creating a Build Flow document',
+  { id: 'decision-id', why: 'decision id', re: /(?<![A-Za-z0-9-])(?<!(?:PRD|ERD) )D\d{1,3}(?![A-Za-z0-9-])/ },
+  { id: 'ready-ticket', why: 'readiness belongs to the receiver', re: /\bREADY tickets?\b/i },
+  { id: 'state', why: 'READY, BLOCKED and DONE are planning states', re: /(?<![A-Za-z_])(READY|BLOCKED|DONE)(?![A-Za-z_])/ },
+  { id: 'execution', why: 'execution planning output', re: /\bexecution DAG\b|\bready frontier\b|\bEngineering Objective\b|\bEXPECTED PROOF\b/i },
+  { id: 'build-flow-document', why: 'creating a planning document',
     re: /\b(creat\w*|writ\w*|draft\w*|generat\w*|produc\w*|add(?:s|ed|ing)?|updat\w*)\b[^.\n]{0,40}\b(PRODUCT|DESIGN|TECH|EXECUTION)\.md\b/i },
-  { id: 'build-flow-trigger', why: 'this line fires the Build Flow gate', re: /^\s*((ok|okay|now|please|then)[,.]?\s+)*run the build flow([^a-z0-9]|$)/i },
+  { id: 'build-flow-trigger', why: 'this line starts the retired Build Flow', re: /^\s*((ok|okay|now|please|then)[,.]?\s+)*run the build flow([^a-z0-9]|$)/i },
   { id: 'planning-heading', why: 'planning section', re: /^#{1,6}\s+.*\b(tickets?|milestones?|implementation plan|execution plan|test plan|next steps|action items)\b/i },
   { id: 'model-choice', why: 'model choice', re: /\buse (the )?(Grok|Codex|Claude|Opus|Sonnet|Haiku|Gemini|GPT[-\w.]*)\b/i },
   { id: 'playbook', why: 'PStack playbook choice', re: new RegExp(`\\b(${PLAYBOOKS}) playbook\\b|\\bPStack\\b|\\bpoteto-(agent|mode)\\b|\\bOrca placement\\b`, 'i') },
@@ -93,13 +93,39 @@ export function classifyPath(relPath) {
   return null
 }
 
-// The number the next handoff in a spec takes: one more than the largest found
-// in the handoff file names, the reconcile notes and the Handoffs through line.
-// A handoff file name counts with three or more digits, as in the Build Flow's
-// own reader. handoff.test.mjs holds this to bf.mjs when the Build Flow is there.
-export function nextHandoffNumber({ handoffFiles = [], workingFiles = [], execution = '' }) {
+// The number the next handoff in a spec takes: one more than the largest
+// H number among the file names in specs/<id>/handoffs/. A file name counts
+// with three or more digits, the form the store uses.
+// One past the largest H number the spec has used: stored file names, reconcile notes left by
+// older specs, and ids cited in the spec's documents. A number is never reused.
+export function nextHandoffNumber({ handoffFiles = [], workingFiles = [], cited = '' }) {
   const files = handoffFiles.map((f) => Number((/^H(\d{3,})-.*\.md$/.exec(f) ?? [])[1] ?? 0))
   const notes = workingFiles.map((f) => Number((/^reconcile-H(\d+)\.md$/.exec(f) ?? [])[1] ?? 0))
-  const through = Number((/^Handoffs through:[ \t]*.*?H(\d+)/m.exec(execution ?? '') ?? [])[1] ?? 0)
-  return Math.max(0, through, ...files, ...notes) + 1
+  const ids = [...String(cited ?? '').matchAll(/(?<![A-Za-z0-9])H(\d{3,})(?![0-9])/g)].map((m) => Number(m[1]))
+  return Math.max(0, ...files, ...notes, ...ids) + 1
+}
+
+// Statement ids. Every top-level list item in the body opens with `S<n>.`,
+// numbered from S1 in order with no gap or repeat: `- S4. text`, or
+// `3. S12. text` in a numbered list. Source provenance lists sources, not
+// statements, and is left out, as are code blocks, quotes and tables.
+// Problems as sentences; an empty list means the ids conform.
+export function checkStatementIds(text) {
+  const lines = String(text).replace(/\r\n?/g, '\n').split('\n')
+  const bad = [], ids = []
+  let fence = false, body = false, skip = false
+  lines.forEach((raw, i) => {
+    if (/^\s*(```|~~~)/.test(raw)) { fence = !fence; return }
+    if (fence) return
+    const h = /^(#{1,6})\s+(.*)/.exec(raw)
+    if (h) { if (h[1].length === 2) { body = true; skip = /provenance/i.test(h[2]) } return }
+    const item = /^(?:[-*+]|\d+[.)])\s+(.*)$/.exec(raw)
+    if (!body || skip || !item) return
+    const id = /^S(\d+)\.\s/.exec(item[1])
+    if (id) ids.push({ n: Number(id[1]), line: i + 1 })
+    else bad.push(`line ${i + 1} is a statement with no \`S<n>.\` id: ${raw.trim().slice(0, 60)}`)
+  })
+  if (!ids.length) bad.unshift('no statement carries an `S<n>.` id')
+  ids.forEach(({ n, line }, k) => { if (n !== k + 1) bad.push(`line ${line} is S${n}, expected S${k + 1}`) })
+  return bad
 }

@@ -3,12 +3,10 @@
 //   node --test tests/handoff/
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
-import { homedir, tmpdir } from 'node:os'
-import { spawnSync } from 'node:child_process'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseHeader, checkHeader, checkDestination, specValue, LABELS, BANNER } from './header.mjs'
-import { lintHandoff, classifyPath, nextHandoffNumber, RULES } from './lint.mjs'
+import { lintHandoff, classifyPath, nextHandoffNumber, checkStatementIds, RULES } from './lint.mjs'
 import { inventory, keeps, sections, within, statements, repeats } from './inventory.mjs'
 import { apply, checkReceipt, checkInline, checkPath, bodyOf, TYPES } from './checks.mjs'
 import { here, project, git, gitState, files, specsOf } from './harness.mjs'
@@ -41,7 +39,28 @@ test('header: good files conform, alone and against the values a run measured', 
   assert.deepEqual(checkHeader(good), [])
   assert.deepEqual(checkHeader(good, measured), [])
   assert.deepEqual(checkHeader(small), [])
-  assert.deepEqual(checkHeader(small, { repository: ['other', 'harbor-desk'], branch: 'notices/subject', dirty: true, overlaps: 'yes', spec: 'several', specs: ['deck-planner', 'disruption-rebooking'] }), [])
+  assert.deepEqual(checkHeader(small, { repository: ['other', 'harbor-desk'], branch: 'notices/subject', dirty: true, overlaps: 'yes', spec: 'none' }), [])
+})
+
+test('numbering: one past the largest H number the spec has used, never reused', () => {
+  assert.equal(nextHandoffNumber({}), 1)
+  assert.equal(nextHandoffNumber({ handoffFiles: ['H001-2026-09-18-a.md', 'H002-2026-09-25-b.md', 'README.md'] }), 3)
+  assert.equal(nextHandoffNumber({ handoffFiles: ['H001-2026-09-18-a.md', 'H002-2026-09-25-b.md'], workingFiles: ['reconcile-H003.md', 'intake.md'] }), 4)
+  assert.equal(nextHandoffNumber({ handoffFiles: ['H001-2026-09-18-a.md'], cited: '| 3 | 2026-10-21 | R4 changed | H007: S1, S3 | |' }), 8)
+  assert.equal(nextHandoffNumber({ handoffFiles: ['H002-2026-09-18-a.md', 'H12-2026-09-18-b.md'] }), 3, 'a name with fewer than three digits is not a stored handoff')
+})
+
+test('header: an older handoff with `Build Flow spec:` and `Ready for Build Flow:` in the same slots is read', () => {
+  const older = good.replace(/^Spec: /m, 'Build Flow spec: ').replace(/^Evidence complete: /m, 'Ready for Build Flow: ')
+  const h = parseHeader(older)
+  assert.deepEqual(h.order, LABELS)
+  assert.equal(h.fields.Spec[0], 'none')
+  assert.equal(h.fields['Evidence complete'][0], 'YES')
+  assert.deepEqual([h.written.Spec, h.written['Evidence complete'], parseHeader(good).written.Spec], ['Build Flow spec', 'Ready for Build Flow', 'Spec'])
+  assert.deepEqual(checkHeader(older, measured), [])
+  assert.match(checkHeader(swap(older, 'Ready for Build Flow', 'NO')).join('\n'), /^`Ready for Build Flow:` is YES or/m, 'a problem names the label as written')
+  const both = good.replace(/^(Evidence complete: .*)$/m, '$1\nReady for Build Flow: YES')
+  assert.match(checkHeader(both).join('\n'), /label `Evidence complete:` appears 2 times/)
 })
 
 test('header: a handoff written into a spec takes its H number as the id', () => {
@@ -55,7 +74,7 @@ test('header: a handoff written into a spec takes its H number as the id', () =>
 test('header: values that differ from what the run measured are reported', () => {
   const cases = [
     [{ head: 'a'.repeat(40) }, /`Baseline:`/], [{ branch: 'dev' }, /`Branch:`/], [{ repository: 'storefront' }, /`Repository:`/], [{ dirty: true }, /the tree was dirty/],
-    [{ depth: 'SMALL' }, /`Depth:`/], [{ mode: 'DELTA' }, /`Mode:`/], [{ spec: 'deck-planner' }, /`Build Flow spec:`/], [{ spec: 'several' }, /several/],
+    [{ depth: 'SMALL' }, /`Depth:`/], [{ mode: 'DELTA' }, /`Mode:`/], [{ spec: 'deck-planner' }, /`Spec:` is `none`/],
     [{ previous: '^specs/' }, /`Previous handoff:`/], [{ path: 'handoffs/20261007-093012-other.md' }, /`Handoff id:`/],
     [{ notBefore: Date.parse('2026-10-07T10:00:00Z'), notAfter: Date.parse('2026-10-07T10:05:00Z') }, /`Created:`.*outside the run/],
   ]
@@ -81,14 +100,14 @@ test('header: a missing label, a short revision, a repeated label and a wrong or
 
 test('header: each value has a shape', () => {
   const bad = { 'Handoff id': 'the deck planner', Created: '2026-10-07 09:30', Baseline: HEAD.toUpperCase(), 'Working tree': 'dirty', Depth: 'Deep', Mode: 'new',
-    'Build Flow spec': 'two of them', Sources: 'one pasted', 'Source hashes': 'notes.md md5 abc', 'Material information loss': 'LOW', 'Ready for Build Flow': 'NO' }
+    Spec: 'two of them', Sources: 'one pasted', 'Source hashes': 'notes.md md5 abc', 'Material information loss': 'LOW', 'Evidence complete': 'NO' }
   for (const [label, value] of Object.entries(bad)) {
     const found = checkHeader(swap(good, label, value))
     assert.equal(found.length, 1, `${label}: ${value} -> ${found.join(' | ')}`)
     assert.ok(found[0].startsWith(`\`${label}:\``), found[0])
   }
   const fine = { Created: '2026-12-31T23:59:59Z', 'Working tree': 'dirty: 3 modified; overlaps the subject: no', Depth: 'STANDARD', Mode: 'DELTA', 'Previous handoff': 'handoffs/20261001-080000-earlier.md',
-    'Build Flow spec': 'disruption-rebooking', 'Source hashes': 'docs/a b.md sha256 ' + 'a1'.repeat(32), 'Material information loss': 'HIGH: the recording was not supplied', 'Ready for Build Flow': 'NO: the recording' }
+    Spec: 'disruption-rebooking', 'Source hashes': 'docs/a b.md sha256 ' + 'a1'.repeat(32), 'Material information loss': 'HIGH: the recording was not supplied', 'Evidence complete': 'NO: the recording' }
   for (const [label, value] of Object.entries(fine)) assert.deepEqual(checkHeader(swap(good, label, value)), [], `${label}: ${value}`)
 })
 
@@ -100,39 +119,52 @@ test('header: no hash of the file itself, no credential, nothing else between th
   assert.match(checkHeader(good.replace('# Handoff: ', '# ')).join('\n'), /no `# Handoff: <name>` title line/)
 })
 
-test('header: `Build Flow spec:` has five forms and no other', () => {
+const OLD_SPEC_FORMS = {
+  'none matched (unrelated: disruption-rebooking)': { kind: 'unrelated', ids: ['disruption-rebooking'] },
+  'none matched (unrelated: deck-planner, disruption-rebooking)': { kind: 'unrelated', ids: ['deck-planner', 'disruption-rebooking'] },
+  'none matched (unclear: disruption-rebooking)': { kind: 'unclear', ids: ['disruption-rebooking'] },
+  'several (deck-planner, disruption-rebooking)': { kind: 'several', ids: ['deck-planner', 'disruption-rebooking'] },
+  'several (a, b, c)': { kind: 'several', ids: ['a', 'b', 'c'] },
+}
+const REFUSED_SPEC = ['two of them', 'several', 'several (deck-planner)', 'several (deck-planner,disruption-rebooking)', 'several: deck-planner, disruption-rebooking', 'none matched',
+  'none matched (disruption-rebooking)', 'none matched (disruption-rebooking exists, unrelated)', 'none matched (unrelated)', 'none matched (irrelevant: disruption-rebooking)',
+  'none (disruption-rebooking is unrelated)', 'disruption-rebooking (the only spec)', 'disruption-rebooking, probably', 'unclear', 'unrelated', 'None', 'specs/disruption-rebooking', '']
+
+test('header: `Spec:` is a spec id or `none`, and nothing else', () => {
   const allowed = {
     'disruption-rebooking': { kind: 'matched', ids: ['disruption-rebooking'] },
     'v2.checkout_flow': { kind: 'matched', ids: ['v2.checkout_flow'] },
     none: { kind: 'none', ids: [] },
-    'none matched (unrelated: disruption-rebooking)': { kind: 'unrelated', ids: ['disruption-rebooking'] },
-    'none matched (unrelated: deck-planner, disruption-rebooking)': { kind: 'unrelated', ids: ['deck-planner', 'disruption-rebooking'] },
-    'none matched (unclear: disruption-rebooking)': { kind: 'unclear', ids: ['disruption-rebooking'] },
-    'several (deck-planner, disruption-rebooking)': { kind: 'several', ids: ['deck-planner', 'disruption-rebooking'] },
-    'several (a, b, c)': { kind: 'several', ids: ['a', 'b', 'c'] },
   }
   for (const [value, read] of Object.entries(allowed)) {
     assert.deepEqual(specValue(value), read, value)
-    assert.deepEqual(checkHeader(swap(good, 'Build Flow spec', value)), [], value)
+    assert.deepEqual(checkHeader(swap(good, 'Spec', value)), [], value)
   }
-  const refused = ['two of them', 'several', 'several (deck-planner)', 'several (deck-planner,disruption-rebooking)', 'several: deck-planner, disruption-rebooking', 'none matched',
-    'none matched (disruption-rebooking)', 'none matched (disruption-rebooking exists, unrelated)', 'none matched (unrelated)', 'none matched (irrelevant: disruption-rebooking)',
-    'none (disruption-rebooking is unrelated)', 'disruption-rebooking (the only spec)', 'disruption-rebooking, probably', 'unclear', 'unrelated', 'None', 'specs/disruption-rebooking', '']
-  for (const value of refused) {
+  for (const value of [...Object.keys(OLD_SPEC_FORMS), ...REFUSED_SPEC]) {
     assert.equal(specValue(value), null, value)
-    const found = checkHeader(swap(good, 'Build Flow spec', value))
-    assert.ok(found.length === 1 && /`Build Flow spec:`/.test(found[0]), `${value} -> ${found.join(' | ')}`)
+    const found = checkHeader(swap(good, 'Spec', value))
+    assert.ok(found.length === 1 && /^`Spec:` is a spec id or `none`/.test(found[0]), `${value} -> ${found.join(' | ')}`)
   }
 })
 
-test('header: the spec a case expects is checked by what was established, not by wording', () => {
-  const one = swap(good, 'Build Flow spec', 'none matched (unrelated: disruption-rebooking)')
-  assert.deepEqual(checkHeader(one, { spec: 'unrelated', specs: ['disruption-rebooking'] }), [])
-  assert.match(checkHeader(one, { spec: 'unclear' }).join('\n'), /expected `none matched \(unclear: <ids>\)`/)
-  assert.match(checkHeader(one, { spec: 'unrelated', specs: ['deck-planner'] }).join('\n'), /does not name `deck-planner`/)
-  assert.match(checkHeader(one, { spec: 'disruption-rebooking' }).join('\n'), /`Build Flow spec:` is `none matched/)
-  assert.match(checkHeader(good, { spec: 'unrelated', specs: ['disruption-rebooking'] }).join('\n'), /is `none`, expected `none matched \(unrelated: <ids>\)`/)
-  assert.match(checkHeader(swap(good, 'Build Flow spec', 'disruption-rebooking'), { spec: 'unrelated', specs: ['disruption-rebooking'] }).join('\n'), /expected `none matched \(unrelated/)
+test('header: an older `Build Flow spec:` keeps its five forms', () => {
+  const older = good.replace(/^Spec: /m, 'Build Flow spec: ')
+  for (const [value, read] of Object.entries({ 'disruption-rebooking': { kind: 'matched', ids: ['disruption-rebooking'] }, none: { kind: 'none', ids: [] }, ...OLD_SPEC_FORMS })) {
+    assert.deepEqual(specValue(value, 'Build Flow spec'), read, value)
+    assert.deepEqual(checkHeader(swap(older, 'Build Flow spec', value)), [], value)
+  }
+  for (const value of REFUSED_SPEC) {
+    assert.equal(specValue(value, 'Build Flow spec'), null, value)
+    const found = checkHeader(swap(older, 'Build Flow spec', value))
+    assert.ok(found.length === 1 && /^`Build Flow spec:`/.test(found[0]), `${value} -> ${found.join(' | ')}`)
+  }
+})
+
+test('header: the spec a case expects is the value written', () => {
+  const one = swap(good, 'Spec', 'disruption-rebooking')
+  assert.deepEqual(checkHeader(one, { spec: 'disruption-rebooking' }), [])
+  assert.match(checkHeader(one, { spec: 'none' }).join('\n'), /`Spec:` is `disruption-rebooking`, the run measured `none`/)
+  assert.match(checkHeader(good, { spec: 'disruption-rebooking' }).join('\n'), /`Spec:` is `none`, the run measured `disruption-rebooking`/)
 })
 
 // --- lint -----------------------------------------------------------------------------------------------------------
@@ -191,7 +223,9 @@ test('lint: every red flag is flagged in plain text and left alone when quoted o
 })
 
 test('lint: ordinary handoff text is not flagged', () => {
-  const fine = ['BLOCKER: the phase needs the segregation table from Runa.', 'Ready for Build Flow: YES', 'See the Source provenance section for the files read.', 'Ticket TW-618, not scheduled.',
+  const fine = ['BLOCKER: the phase needs the segregation table from Runa.', 'Ready for Build Flow: YES', 'Evidence complete: YES', 'Evidence complete: NO: the runbook. S4 and S9 are held.',
+    '- S1. The window is 72 hours.', '3. S12. Phase 3: height and weight limits.', 'H004-S3 set the window at 72 hours.', '- S2. Changed: H003-S4 said 48 hours, and this source says 72.',
+    'See the Source provenance section for the files read.', 'Ticket TW-618, not scheduled.',
     'Blocked on DATA-4471 and PLAT-2231.', 'MV Tern has 14 lanes.', 'The earlier handoff is H004.', 'The offer is ready when capacity is confirmed.', 'The work is done by a person on staging.',
     '### Phase 3: height and weight limits', '## Source implementation sequence', '## Source roadmap', '## Testing / QA / proof expectations', 'A service worker caches the deck view.',
     '`specs/disruption-rebooking/EXECUTION.md` exists and reads `Handoffs through: H002`.', 'The repository has no PRODUCT.md.', 'APPROVED DECISION: an offer expires after 6 hours.', 'REQUIREMENT: the notice goes out within 10 minutes.',
@@ -214,37 +248,27 @@ test('path: only the spec store and the intake directory are allowed', () => {
   for (const p of refused) assert.equal(classifyPath(p), null, p)
 })
 
-test('path: the next number comes from the files, the reconcile notes and the Handoffs through line', () => {
+test('path: the next number is one more than the highest H number in the spec\'s handoffs/', () => {
   assert.equal(nextHandoffNumber({}), 1)
   assert.equal(nextHandoffNumber({ handoffFiles: ['H001-2026-09-18-a.md', 'H002-2026-09-25-b.md', 'README.md'] }), 3)
-  assert.equal(nextHandoffNumber({ handoffFiles: ['H001-2026-09-18-a.md', 'H002-2026-09-25-b.md'], workingFiles: ['reconcile-H003.md', 'intake.md'] }), 4)
-  assert.equal(nextHandoffNumber({ handoffFiles: ['H001-2026-09-18-a.md'], workingFiles: ['reconcile-H003.md'], execution: '# Execution\nHandoffs through: H007\n' }), 8)
-  assert.equal(nextHandoffNumber({ handoffFiles: ['H012-2026-09-18-a.md'], execution: 'Handoffs through: H007' }), 13)
+  assert.equal(nextHandoffNumber({ handoffFiles: ['H001-2026-09-18-a.md', 'H007-2026-09-25-b.md'] }), 8, 'a gap is not filled')
+  assert.equal(nextHandoffNumber({ handoffFiles: ['H0031-2026-09-19-c.md', 'H002-2026-09-18-a.md'] }), 32)
   assert.equal(nextHandoffNumber({ handoffFiles: ['H002-2026-09-18-a.md', 'H12-2026-09-18-b.md'] }), 3, 'a name with fewer than three digits is not a stored handoff')
 })
 
-// The numbering rule lives in three places: FILE.md, this helper, and the Build
-// Flow's ingest. This holds the helper to ingest on the same directory.
-const BF = join(process.env.BUILD_FLOW_SKILL || join(homedir(), 'dotfiles', 'machine', 'build-flow'), 'scripts', 'bf.mjs')
-test('path: the next number is the one the Build Flow would assign', { skip: existsSync(BF) ? false : `no Build Flow helper at ${BF} (set BUILD_FLOW_SKILL)` }, () => {
-  const stores = [
-    { handoffFiles: [], workingFiles: [], execution: '' },
-    { handoffFiles: ['H001-2026-09-18-a.md', 'H002-2026-09-25-b.md', 'README.md'], workingFiles: ['reconcile-H003.md', 'intake.md'], execution: '' },
-    { handoffFiles: ['H001-2026-09-18-a.md'], workingFiles: ['reconcile-H003.md'], execution: '# Execution\nHandoffs through: H007\n' },
-    { handoffFiles: ['H002-2026-09-18-a.md', 'H12-2026-09-18-b.md', 'H0031-2026-09-19-c.md'], workingFiles: [], execution: 'Handoffs through: H004\n' },
-  ]
-  for (const store of stores) {
-    const dir = mkdtempSync(join(tmpdir(), 'handoff-number-'))
-    const spec = join(dir, 'specs', 'x')
-    mkdirSync(join(spec, 'handoffs'), { recursive: true })
-    mkdirSync(join(spec, 'working'))
-    store.handoffFiles.forEach((f, i) => writeFileSync(join(spec, 'handoffs', f), `Earlier handoff ${i}.\n`))
-    store.workingFiles.forEach((f) => writeFileSync(join(spec, 'working', f), 'note\n'))
-    if (store.execution) writeFileSync(join(spec, 'EXECUTION.md'), store.execution)
-    const out = JSON.parse(spawnSync('node', [BF, 'ingest', '--spec', 'specs/x', '--title', 'Next'], { cwd: dir, input: 'A new handoff.\n', encoding: 'utf8' }).stdout)
-    assert.equal(out.id, `H${String(nextHandoffNumber(store)).padStart(3, '0')}`, JSON.stringify(store))
-    rmSync(dir, { recursive: true, force: true })
-  }
+// --- statement ids --------------------------------------------------------------------------------------------------
+
+test('statements: every top-level list item in the body carries S1 to Sn in order', () => {
+  assert.deepEqual(checkStatementIds(good), [])
+  assert.deepEqual(checkStatementIds(small), [])
+  const doc = (body) => `# Handoff: X\nHandoff. Evidence, not truth. Compiled by /handoff.\n\n${body}`
+  assert.deepEqual(checkStatementIds(doc('## Requirements\n\n- S1. A.\n  - detail of S1, not a statement\n\n## Source roadmap\n\n1. S2. Phase one.\n2. S3. Phase two.\n\n```text\n- not a statement\n```\n\n> - quoted\n\n## Source provenance\n\n- notes.md, pasted\n')), [])
+  assert.match(checkStatementIds(doc('## Requirements\n\nProse only.\n')).join('\n'), /no statement carries an `S<n>.` id/)
+  assert.match(checkStatementIds(doc('## Requirements\n\n- S1. A.\n- B.\n')).join('\n'), /line 7 is a statement with no `S<n>.` id: - B\./)
+  assert.match(checkStatementIds(doc('## Requirements\n\n- S1. A.\n- S3. B.\n')).join('\n'), /line 7 is S3, expected S2/)
+  assert.match(checkStatementIds(doc('## Requirements\n\n- S1. A.\n- S1. B.\n')).join('\n'), /line 7 is S1, expected S2/)
+  assert.match(checkStatementIds(doc('## Requirements\n\n- S2. A.\n')).join('\n'), /is S2, expected S1/)
+  assert.deepEqual(rules('- S1. A.\n- S2. H004-S3 set the window.'), [], 'ids are not red flags')
 })
 
 test('path: where a file landed is checked against the storage rule and the clock', () => {
@@ -274,39 +298,39 @@ test('destination: only a matched spec takes the file into its store, however ma
   assert.equal(check(two, 'disruption-rebooking', SPEC), '', 'a second spec does not change a match')
   assert.match(check(two, 'disruption-rebooking', OTHER), /is under specs\/deck-planner\/, and the header matched `disruption-rebooking`/)
 
-  // One unrelated single spec: the intake path is required, and a spec path fails.
-  assert.equal(check(one, 'none matched (unrelated: disruption-rebooking)', INTAKE), '')
-  assert.match(check(one, 'none matched (unrelated: disruption-rebooking)', SPEC), /is inside a spec, and the header established `none matched \(unrelated: disruption-rebooking\)`/)
-  assert.equal(check(one, 'none matched (unclear: disruption-rebooking)', INTAKE), '')
-  assert.match(check(one, 'none matched (unclear: disruption-rebooking)', SPEC), /is inside a spec/)
-  assert.match(check(one, 'none', INTAKE), /is `none`, and the repository holds `disruption-rebooking`/, 'a spec that exists is named, matched or not')
-  assert.match(check(one, 'none', SPEC), /is inside a spec/)
-
-  // Several ambiguous specs: the intake path is required.
-  assert.equal(check(two, 'several (deck-planner, disruption-rebooking)', INTAKE), '')
-  assert.match(check(two, 'several (deck-planner, disruption-rebooking)', SPEC), /is inside a spec, and the header established `several/)
-  assert.equal(check(two, 'none matched (unrelated: deck-planner, disruption-rebooking)', INTAKE), '')
-  assert.match(check(two, 'none matched (unrelated: disruption-rebooking)', INTAKE), /leaves out `deck-planner`/)
+  // No spec matched, with one or two specs present: `none`, and the intake path is required.
+  assert.equal(check(one, 'none', INTAKE), '', 'a spec that exists and does not match is not named in the header')
+  assert.match(check(one, 'none', SPEC), /is inside a spec, and the header established `none`/)
+  assert.equal(check(two, 'none', INTAKE), '')
 
   // No spec, a spec that does not exist, a value outside the grammar, and an inline handoff with no path.
   assert.equal(check([], 'none', INTAKE), '')
   assert.match(check([], 'disruption-rebooking', SPEC), /names `disruption-rebooking`, and the repository holds no spec/)
-  assert.match(check(one, 'several (deck-planner, disruption-rebooking)', INTAKE), /names `deck-planner`/)
+  assert.match(check(one, 'several (deck-planner, disruption-rebooking)', INTAKE), /`Spec:` is `several \(deck-planner, disruption-rebooking\)`, which is none of the allowed forms/)
   assert.match(check(one, 'the only spec', INTAKE), /none of the allowed forms/)
-  assert.equal(check(one, 'none matched (unrelated: disruption-rebooking)', undefined), '')
-  assert.match(check(one, 'none', undefined), /is `none`, and the repository holds/)
+  assert.equal(check(one, 'none', undefined), '')
+
+  // An older handoff's `Build Flow spec:` keeps its own forms and rules.
+  const older = (specs, value, path) => checkDestination({ specs, value, path, label: 'Build Flow spec' }).join('\n')
+  assert.equal(older(one, 'none matched (unrelated: disruption-rebooking)', INTAKE), '')
+  assert.match(older(one, 'none matched (unclear: disruption-rebooking)', SPEC), /is inside a spec/)
+  assert.equal(older(two, 'several (deck-planner, disruption-rebooking)', INTAKE), '')
+  assert.match(older(two, 'none matched (unrelated: disruption-rebooking)', INTAKE), /`Build Flow spec:` says none matched and leaves out `deck-planner`/)
+  assert.match(older(one, 'several (deck-planner, disruption-rebooking)', INTAKE), /names `deck-planner`/)
 })
 
 test('destination: apply reads the header of the run and the specs the repository held', () => {
   const SPEC = 'specs/disruption-rebooking/handoffs/H004-2026-10-07-expiry-exception.md'
   const INTAKE = 'handoffs/20261007-093012-boarding-manifest.md'
-  const run = (value, handoffPath, specs) => apply({ destination: true }, { doc: swap(good, 'Build Flow spec', value), handoffPath, specs })
+  const run = (value, handoffPath, specs, doc = good) => apply({ destination: true }, { doc: swap(doc, 'Spec', value), handoffPath, specs })
   assert.deepEqual(run('none', INTAKE, []), [])
+  assert.deepEqual(run('none', INTAKE, ['disruption-rebooking']), [])
   assert.deepEqual(run('disruption-rebooking', SPEC, ['disruption-rebooking']), [])
-  assert.deepEqual(run('none matched (unrelated: disruption-rebooking)', INTAKE, ['disruption-rebooking']), [])
-  assert.equal(run('none matched (unrelated: disruption-rebooking)', SPEC, ['disruption-rebooking']).length, 1)
+  assert.equal(run('none', SPEC, ['disruption-rebooking']).length, 1)
   assert.equal(run('disruption-rebooking', INTAKE, ['disruption-rebooking']).length, 1)
-  assert.deepEqual(apply({ destination: true }, { doc: '', specs: [] }), ['no `Build Flow spec:` line to read'])
+  const older = good.replace(/^Spec: /m, 'Build Flow spec: ')
+  assert.deepEqual(apply({ destination: true }, { doc: swap(older, 'Build Flow spec', 'none matched (unrelated: disruption-rebooking)'), handoffPath: INTAKE, specs: ['disruption-rebooking'] }), [])
+  assert.deepEqual(apply({ destination: true }, { doc: '', specs: [] }), ['no `Spec:` line to read'])
 })
 
 // --- inventory ------------------------------------------------------------------------------------------------------
@@ -427,17 +451,17 @@ test('repetition: apply counts repeats in the body against the allowance', () =>
 
 // --- receipt --------------------------------------------------------------------------------------------------------
 
-const receipt = (path, { depth = 'DEEP', baseline = '8f2c41d', mode = 'NEW', loss = 'NONE', ready = 'YES', next = true } = {}) =>
-  ['HANDOFF', `\`${path}\``, '', `Depth: ${depth}`, `Baseline: ${baseline}`, `Mode: ${mode}`, `Material information loss: ${loss}`, '', `Ready for Build Flow: ${ready}`,
-    ...(next ? ['', 'Next:', 'Run the Build Flow using', `\`${path}\``] : [])].join('\n')
+const receipt = (path, { depth = 'DEEP', baseline = '8f2c41d', mode = 'NEW', loss = 'NONE', ready = 'YES', label = 'Evidence complete' } = {}) =>
+  ['HANDOFF', `\`${path}\``, '', `Depth: ${depth}`, `Baseline: ${baseline}`, `Mode: ${mode}`, `Material information loss: ${loss}`, '', `${label}: ${ready}`].join('\n')
 
-test('receipt: the contract form passes, with and without the Next lines', () => {
+test('receipt: the contract form passes, and ends on the verdict', () => {
   assert.deepEqual(checkReceipt(receipt(GOOD_PATH), { path: GOOD_PATH, doc: good }), [])
   assert.deepEqual(checkReceipt(`\`\`\`text\n${receipt(GOOD_PATH)}\n\`\`\`\n`, { path: GOOD_PATH, doc: good }), [])
   assert.deepEqual(checkReceipt(receipt(GOOD_PATH, { baseline: HEAD.slice(0, 12) }), { path: GOOD_PATH, doc: good }), [])
   assert.deepEqual(checkReceipt(`${receipt(GOOD_PATH)}\n\nThe source held a staging token. Rotate it if the notes were shared.`, { path: GOOD_PATH, doc: good, secret: true }), [])
   const p = 'handoffs/20261007-101544-cancellation-email-subject-line.md'
-  assert.deepEqual(checkReceipt(receipt(p, { depth: 'SMALL', baseline: '0a1b2c3', loss: 'LOW: an image was not read', ready: 'NO: the approved body text', next: false }), { path: p, doc: small }), [])
+  assert.deepEqual(checkReceipt(receipt(p, { depth: 'SMALL', baseline: '0a1b2c3', loss: 'LOW: an image was not read', ready: 'NO: the approved body text' }), { path: p, doc: small }), [])
+  assert.deepEqual(checkReceipt(receipt(GOOD_PATH, { label: 'Ready for Build Flow' }), { path: GOOD_PATH, doc: good }), [], 'the older verdict label is accepted')
 })
 
 test('receipt: anything else in chat fails', () => {
@@ -453,11 +477,10 @@ test('receipt: anything else in chat fails', () => {
   assert.match(check(receipt(GOOD_PATH, { baseline: 'main' })), /is not a short revision/)
   assert.match(check(receipt(GOOD_PATH, { mode: 'DELTA' })), /receipt `Mode: DELTA`/)
   assert.match(check(receipt(GOOD_PATH, { loss: 'LOW: a phase' })), /receipt `Material information loss: LOW: a phase`/)
-  assert.match(check(receipt(GOOD_PATH, { ready: 'NO: a phase', next: false })), /receipt `Ready for Build Flow: NO: a phase`/)
-  assert.match(check(receipt(GOOD_PATH, { next: false })), /with YES the receipt ends/)
-  assert.match(check(receipt(GOOD_PATH).replace(/`[^`]+`$/, 'this handoff.')), /with YES the receipt ends/)
+  assert.match(check(receipt(GOOD_PATH, { ready: 'NO: a phase' })), /receipt `Evidence complete: NO: a phase`/)
+  assert.match(check(`${receipt(GOOD_PATH)}\n\nNext:\nRun the Build Flow using\n\`${GOOD_PATH}\``), /3 line\(s\) in the reply beyond the receipt/, 'the retired Next lines are extra lines')
   assert.match(check(receipt(GOOD_PATH).replace('Mode: NEW\n', '')), /no `Mode:` line/)
-  assert.match(checkReceipt(receipt(GOOD_PATH, { ready: 'NO: a phase' }), { path: GOOD_PATH, doc: swap(good, 'Ready for Build Flow', 'NO: a phase') }).join('\n'), /Next lines appear without/)
+  assert.match(check(receipt(GOOD_PATH).replace(/\nEvidence complete: YES$/, '')), /no `Evidence complete:` line/)
 })
 
 // --- checks.json and the runner -------------------------------------------------------------------------------------
@@ -477,8 +500,9 @@ test('checks.json: every case has checks, and every check is one known type with
       const patterns = { has: [v], absent: [v], stdoutHas: [v], stdoutAbsent: [v], inSection: v, notInSection: v, minCount: [v?.[0]], maxCount: [v?.[0]], sectionMinCount: v?.slice?.(0, 2), fileHas: [v?.[1]] }[keys[0]] ?? []
       for (const p of patterns) assert.doesNotThrow(() => new RegExp(p, 'im'), `${name}: ${p}`)
       if (c.inventory) assert.ok(existsSync(join(here, 'inventory', `${c.inventory}.json`)), c.inventory)
-      if (c.header) assert.deepEqual(Object.keys(c.header).filter((k) => !['depth', 'mode', 'spec', 'specs', 'previous', 'overlaps'].includes(k)), [], name)
-      if (c.header?.specs) assert.ok(['several', 'unrelated', 'unclear'].includes(c.header.spec), name)
+      if (c.header) assert.deepEqual(Object.keys(c.header).filter((k) => !['depth', 'mode', 'spec', 'previous', 'overlaps'].includes(k)), [], name)
+      if (c.header?.spec !== undefined) assert.ok(specValue(c.header.spec) !== null, `${name}: ${c.header.spec}`)
+      if (c.asks) assert.ok(Array.isArray(c.asks) && c.asks.length >= 2, name)
       if (c.path) assert.deepEqual(Object.keys(c.path).filter((k) => !['kind', 'spec', 'n'].includes(k)), [], name)
     }
   }
@@ -490,9 +514,11 @@ test('checks.json: a case inside a repository is a file case or says it is inlin
   assert.deepEqual(repoCases.map((n) => n.slice(0, 2)), ['22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33'])
   for (const name of repoCases) {
     const inline = checks[name].some((c) => c.writes === 'none')
+    const asks = checks[name].some((c) => c.asks)
     assert.equal(inline, name === '31-inline-in-repo', name)
-    assert.ok(inline ? checks[name].some((c) => c.git === 'unchanged') : checks[name].some((c) => c.path), name)
-    assert.ok(checks[name].some((c) => c.header), name)
+    assert.equal(asks, name === '30-two-specs', name)
+    assert.ok(inline || asks ? checks[name].some((c) => c.git === 'unchanged') : checks[name].some((c) => c.path), name)
+    assert.ok(asks || checks[name].some((c) => c.header), name)
   }
   for (const name of caseNames.filter((n) => !repoCases.includes(n))) assert.ok(checks[name].some((c) => c.writes), `${name} says what it writes`)
 })
@@ -512,6 +538,7 @@ test('the fixture repositories build as the cases describe them', () => {
   assert.equal(git(one.cwd, 'status', '--porcelain').trim(), '')
   const spec = join(one.cwd, 'specs', 'disruption-rebooking')
   assert.deepEqual(readdirSync(join(one.cwd, 'specs')), ['disruption-rebooking'])
+  assert.ok(readdirSync(join(spec, 'working')).includes('reconcile-H003.md'), 'a note outside handoffs/ names H003')
   assert.equal(nextHandoffNumber({ handoffFiles: readdirSync(join(spec, 'handoffs')), workingFiles: readdirSync(join(spec, 'working')) }), 4)
   assert.equal(checks['29-spec-store'].find((c) => c.path).path.n, 4)
 
@@ -527,11 +554,11 @@ test('the fixture repositories build as the cases describe them', () => {
   assert.deepEqual(specsOf(plain.cwd), [])
   assert.deepEqual(specsOf(one.cwd), ['disruption-rebooking'])
 
-  // The three routing outcomes each have a case that asserts the path and the header.
+  // Each routing outcome has a case: a matched spec and an unrelated one assert the path and the header, an unknown one asks.
   const routing = (name) => [checks[name].find((c) => c.path).path.kind, checks[name].find((c) => c.header).header.spec]
   assert.deepEqual(routing('29-spec-store'), ['spec', 'disruption-rebooking'], 'one matching spec')
-  assert.deepEqual(routing('33-unrelated-single-spec'), ['intake', 'unrelated'], 'one unrelated single spec')
-  assert.deepEqual(routing('30-two-specs'), ['intake', 'several'], 'several ambiguous specs')
+  assert.deepEqual(routing('33-unrelated-single-spec'), ['intake', 'none'], 'one unrelated single spec')
+  assert.deepEqual(checks['30-two-specs'].find((c) => c.asks).asks, ['deck-planner', 'disruption-rebooking'], 'several ambiguous specs: ask, naming both')
   assert.deepEqual(routing('32-two-specs-one-subject'), ['spec', 'disruption-rebooking'], 'two specs, one named by the source')
 
   const two = project('30-two-specs')
@@ -560,6 +587,10 @@ test('apply: a conforming file run passes the default file checks, and each faul
   assert.deepEqual(failing(run({ written: [], git: { unchanged: true, rest: true, added: [] }, out: good, handoffPath: undefined, expected: { ...measured, path: undefined } }), [{ writes: 'none' }, { git: 'unchanged' }, { header: { mode: 'NEW' } }, { lint: true }]), [])
   assert.deepEqual(failing(run({ out: good }), [{ inline: true }]), [])
   assert.deepEqual(failing(run(), [{ inline: true }]), ['inline'], 'a receipt is not an inline handoff')
+  const asks = { asks: ['deck-planner', 'disruption-rebooking'] }
+  assert.deepEqual(apply(asks, run({ written: [], out: 'The loading table bears on deck-planner and disruption-rebooking. Which spec is it for, or none?' })), [])
+  assert.match(apply(asks, run({ written: [], out: 'Which spec is it for, deck-planner?' })).join('\n'), /does not name `disruption-rebooking`/)
+  assert.match(apply(asks, run({ out: `deck-planner or disruption-rebooking?\n\n${receipt(GOOD_PATH)}` })).join('\n'), /wrote .*\n.*not a question/)
   assert.throws(() => apply({ nonsense: 1 }, run()), /unknown check/)
 })
 

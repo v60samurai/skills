@@ -1,4 +1,4 @@
-// What run.mjs and fresh-session.mjs share: building a fixture project,
+// What run.mjs uses: building a fixture project,
 // linking a skill into it, running Claude in it, and reading Git state.
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, mkdirSync, symlinkSync, readdirSync, existsSync, cpSync, appendFileSync, realpathSync } from 'node:fs'
@@ -25,9 +25,11 @@ export function gitState(cwd) {
     rest: JSON.stringify([status.filter((l) => !l.startsWith('?? ')), git(cwd, 'diff'), git(cwd, 'diff', '--cached'), git(cwd, 'stash', 'list')]) }
 }
 
-// The ids of the Build Flow specs in a project: the directories under specs/
-// that hold Build Flow material, by the definition in the skill's FILE.md.
-const SPEC_MARKS = ['PRODUCT.md', 'DESIGN.md', 'TECH.md', 'EXECUTION.md', 'handoffs', 'working', 'execution']
+// The ids of the specs in a project: the directories under specs/ that hold
+// spec documents or a handoff store, by the definition in the skill's FILE.md.
+// The second line is the layout older specs used.
+const SPEC_MARKS = ['PRD.md', 'journeys.md', 'DESIGN.md', 'ERD.md', 'handoffs',
+  'PRODUCT.md', 'TECH.md', 'EXECUTION.md', 'working', 'execution']
 export function specsOf(cwd) {
   const dir = join(cwd, 'specs')
   if (!existsSync(dir)) return []
