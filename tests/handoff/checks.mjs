@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { checkHeader, checkDestination, parseHeader } from './header.mjs'
 import { lintHandoff, classifyPath, checkStatementIds } from './lint.mjs'
+import { checkHandoff, parts } from '../../skills/handoff/scripts/check-handoff.mjs'
 import { inventory, within, repeats } from './inventory.mjs'
 
 const re = (s) => new RegExp(s, 'im')
@@ -49,6 +50,11 @@ export function checkReceipt(stdout, { path, doc, secret = false }) {
   field('Baseline', (v, said) => (!/^[0-9a-f]{7,40}$/.test(v) ? 'is not a short revision' : said !== undefined && !said.startsWith(v) ? `is not the start of the file header \`${said}\`` : ''))
   field('Mode', same)
   field('Material information loss', level)
+  if (h.fields.Contract) {
+    field('Contract', (v, said) => (said !== undefined && v !== said.split(/[\s:]/)[0] ? `differs from the file header \`${said}\`` : ''))
+    field('Execution ready', same)
+    field('Assets', same)
+  }
   field(['Evidence complete', 'Ready for Build Flow'], level)
   const extra = lines.filter((_, i) => !used.has(i))
   if (extra.length > (secret ? 1 : 0)) bad.push(`${extra.length} line(s) in the reply beyond the receipt${secret ? ' and the secret notice' : ''}: ${extra.slice(0, 3).map((l) => JSON.stringify(l.slice(0, 70))).join(', ')}`)
@@ -83,7 +89,13 @@ export function checkPath(relPath, want = {}, { start, end, now = Date.now() } =
 
 export const TYPES = ['has', 'absent', 'inSection', 'notInSection', 'minCount', 'maxCount', 'sectionMinCount', 'shorterThan', 'maxRatio', 'maxChars',
   'maxRepeats', 'writes', 'fileHas', 'git', 'stdoutHas', 'stdoutAbsent', 'path', 'header', 'destination', 'lint', 'receipt', 'inventory', 'inline',
-  'asks', 'statements']
+  'asks', 'statements', 'evidenceAbsent', 'execution', 'contract', 'flags']
+
+// The evidence part of a handoff: Part D, or the whole file when it has no parts.
+export function evidenceOf(doc) {
+  const p = parts(doc)
+  return p.hasParts && p.ranges.D ? p.lines.slice(...p.ranges.D).map((l) => l.raw).join('\n') : doc
+}
 
 // Applies one check. Returns true, false, or a list of problems (empty passes).
 //
@@ -97,6 +109,10 @@ export function apply(c, r) {
   const size = bodyOf(doc).length
   if (c.has) return re(c.has).test(doc)
   if (c.absent) return !re(c.absent).test(doc)
+  if (c.evidenceAbsent) return !re(c.evidenceAbsent).test(evidenceOf(doc))
+  if (c.flags !== undefined) return true
+  if (c.contract) { const v = parseHeader(doc.slice(Math.max(0, doc.search(/^# Handoff:/m)))).fields.Contract?.[0] ?? ''; return v.split(':')[0].split(' ')[0] === c.contract ? true : [`\`Contract:\` is \`${v}\`, expected ${c.contract}`] }
+  if (c.execution) return checkHandoff(doc.slice(Math.max(0, doc.search(/^# Handoff:/m))), { root: r.handoffPath ? join(r.cwd, r.handoffPath, '..') : null })
   if (c.inSection) return re(c.inSection[1]).test(within(doc, c.inSection[0]))
   if (c.notInSection) return !re(c.notInSection[1]).test(within(doc, c.notInSection[0]))
   if (c.minCount) return (doc.match(new RegExp(c.minCount[0], 'gim')) || []).length >= c.minCount[1]
@@ -117,7 +133,10 @@ export function apply(c, r) {
   if (c.git === 'unchanged') return r.git.unchanged
   if (c.git === 'one-new-file') {
     if (!r.git.rest) return ['HEAD, the branch, the index, tracked files or the stash changed']
-    return r.git.added.length === 1 && classifyPath(r.git.added[0]) ? true : [`new untracked files: ${r.git.added.join(', ') || 'none'}`]
+    const handoffs = r.git.added.filter((f) => classifyPath(f))
+    const assets = handoffs.length === 1 ? `${handoffs[0].replace(/[^/]+$/, '')}${classifyPath(handoffs[0]).id}-assets/` : null
+    const others = r.git.added.filter((f) => !classifyPath(f) && !(assets && f.startsWith(assets)))
+    return handoffs.length === 1 && !others.length ? true : [`new untracked files: ${r.git.added.join(', ') || 'none'}`]
   }
   if (c.path) return checkPath(r.handoffPath, c.path, r)
   if (c.header) return r.doc ? checkHeader(doc.slice(Math.max(0, doc.search(/^# Handoff:/m))), { ...r.expected, ...c.header }) : ['no handoff to read']

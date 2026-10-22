@@ -10,12 +10,12 @@
   "skills": [
     {
       "name": "handoff",
-      "description": "Compiles messy source material and the repository's status quo into one self-contained Markdown evidence file that keeps material detail and each statement's epistemic status. Inside a Git repository it writes the file and returns a short receipt.",
+      "description": "Compiles messy source material, images and the repository's status quo into one self-contained Markdown file that keeps material detail and each statement's epistemic status. When no spec matches, it adds an execution contract, specification and tickets PStack can build from, approved by the user. Inside a Git repository it writes the file and its images and returns a short receipt.",
       "status": "portable",
       "publish_mode": "source",
       "canonical_owner": "skills/handoff",
       "invocation": "/handoff (explicit only)",
-      "reason": "Written for this repository. Standalone."
+      "reason": "Written for this repository. Standalone. Its tickets borrow the vertical-slice, blocking-edge and expand-contract ideas of to-spec and to-tickets in mattpocock/skills (MIT)."
     },
     {
       "name": "prompt-compile",

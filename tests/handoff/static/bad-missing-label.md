@@ -13,6 +13,9 @@ Spec: none
 Sources: 1 (1 pasted)
 Source hashes: pasted text, not hashed
 Evidence complete: YES
+Contract: none
+Execution ready: none
+Assets: none
 
 ## Executive context
 

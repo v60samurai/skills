@@ -14,6 +14,9 @@ Sources: 2 (1 file, 1 pasted)
 Source hashes: notes/legal-reply.md sha256 3b7e5c0f9a1d42e68b0c7f5a9e3d1c2b4a6f8e0d1c3b5a7f9e0d2c4b6a8f0e1d; pasted text, not hashed
 Material information loss: LOW: the source's second attachment was an image and was not read
 Evidence complete: NO: the approved body text, which the source says is still with Legal
+Contract: none
+Execution ready: none
+Assets: none
 
 ## Repository status quo
 

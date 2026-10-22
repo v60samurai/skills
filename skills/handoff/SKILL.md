@@ -1,29 +1,34 @@
 ---
 name: handoff
-description: "Compiles messy source material (meeting notes, threads, specs, updates, findings, an earlier handoff plus an add-on) and the repository's status quo into one self-contained Markdown evidence file with numbered statements, and returns a short receipt. Material detail and each statement's epistemic status are kept. `--inline` prints it and writes nothing. Runs only on /handoff."
+description: "Compiles messy source material (meeting notes, Granola meetings, screenshots, threads, specs, findings, an earlier handoff plus an add-on) and the repository's status quo into one self-contained Markdown file: an execution contract, specification and tickets PStack can build from, over the evidence they cite, with images stored beside it. Material detail and each statement's epistemic status are kept. `--evidence-only` writes the evidence alone, `--candidate` skips the review, `--inline` prints and writes nothing. Runs only on /handoff."
 disable-model-invocation: true
-allowed-tools: Read Grep Glob Write Bash(pwd) Bash(date:*) Bash(shasum:*) Bash(git rev-parse:*) Bash(git branch --show-current) Bash(git status:*) Bash(git log:*) Bash(git diff:*) Bash(git show:*) Bash(git ls-files:*)
-argument-hint: "[--inline] [source material or file paths] [\"save it to <path>\"] [\"for spec <id>\"]"
+allowed-tools: Read Grep Glob Write Bash(pwd) Bash(date:*) Bash(shasum:*) Bash(mkdir:*) Bash(cp:*) Bash(file:*) Bash(node:*) mcp__claude_ai_Granola__list_meetings mcp__claude_ai_Granola__query_granola_meetings mcp__claude_ai_Granola__get_meetings mcp__claude_ai_Granola__get_meeting_attachment mcp__claude_ai_Granola__get_meeting_transcript Bash(git rev-parse:*) Bash(git branch --show-current) Bash(git status:*) Bash(git log:*) Bash(git diff:*) Bash(git show:*) Bash(git ls-files:*)
+argument-hint: "[--inline] [--evidence-only] [--candidate] [source material, file paths or Granola meetings] [\"save it to <path>\"] [\"for spec <id>\"]"
 ---
 
 # Handoff
 
-`/handoff` is an **evidence compiler**. It turns raw human context, the repository's status quo, existing documents and relevant implementation evidence into one persistent, self-contained Markdown evidence file. A receiver who was never in the conversation and cannot open the source reconciles and plans from that file and the repository alone.
+`/handoff` is a **compiler**. It turns raw human context, images, the repository's status quo, existing documents and relevant implementation evidence into one persistent, self-contained Markdown file. A receiver who was never in the conversation and cannot open the source works from that file, its images and the repository alone.
 
 ```text
-MESSY CONTEXT -> /handoff -> SELF-CONTAINED EVIDENCE FILE -> RECEIVER -> CANONICAL DOCUMENTS
+                          no spec matches:  A. execution contract
+MESSY CONTEXT -> /handoff ----------------> B. specification       -> PSTACK
+                                            C. tickets
+                                            D. evidence
+                          a spec matches:   evidence only          -> SPEC WRITERS -> PSTACK
 ```
 
-- `/handoff` owns what was said, what exists, what was observed and what was proposed.
-- The receiver owns what is authoritative. In a repository with specs, the writer of each spec document takes in the statements that belong to it, citing them by id.
-- PStack owns how ready work gets engineered.
+- **The evidence** (Part D, or the whole file when it is evidence only) records what was said, what exists, what was observed and what was proposed. Everything in this file from Material to Before writing governs it.
+- **The execution parts** (A to C) are derived from the evidence under [`EXECUTION.md`](EXECUTION.md): what to build, the slices of work, and what is decided and still open. They are a candidate until the user approves them in the run.
+- In a repository with specs, a handoff filed into a spec is evidence only, and the writer of each spec document takes in the statements that belong to it, citing them by id.
+- PStack owns how the work gets engineered: playbooks, PRs, models, delegation and verification mechanics.
 
-A handoff is not a summary, not canonical truth and not a plan. Two rules govern everything else:
+The evidence is not a summary, not canonical truth and not a plan. Two rules govern it:
 
 - **Compress without changing epistemic status.** A maybe stays a maybe. A decision stays a decision only if the source shows one.
 - **Compress repetition, preserve substance.** Remove noise. Keep every material detail.
 
-The whole skill serves one sentence: make the handoff rich enough that the receiver needs no original context, and never so opinionated that the receiver has nothing left to reconcile.
+The evidence serves one sentence: rich enough that the receiver needs no original context, and never so opinionated that it settles what the source left open. Settling belongs to the user, in the review in `EXECUTION.md`, or to the spec writers.
 
 ## When not to use it
 
@@ -37,13 +42,15 @@ If there is no source at all, ask for it and stop.
 
 Work through the steps in order. Each ends on a checkpoint, and the next step starts only when the checkpoint holds.
 
-1. **Read the source.** The source is everything the user supplied with the invocation: pasted text, attached or named files, and earlier messages they point at. *Checkpoint: every supplied item has been read to its end.*
+1. **Read the source.** The source is everything the user supplied with the invocation: pasted text, attached or named files, images, Granola meetings, and earlier messages they point at. When it includes a Granola meeting or any image, read [`SOURCES.md`](SOURCES.md) now and follow it. *Checkpoint: every supplied item has been read to its end, and every material image is captured or marked not stored.*
 2. **Run the repository pass.** Run `git rev-parse --show-toplevel`. Inside a Git repository, read [`REPOSITORY.md`](REPOSITORY.md) now and do its pass before sorting the source. Outside a repository, work from the source alone and write as if repositories did not exist: no status quo section, no note that none was found or that code went unchecked, no source authority classes. *Checkpoint: the done condition in `REPOSITORY.md` holds, or there is no repository.*
 3. **Classify.** List the source's material items (see Material). Give each its epistemic type (see Classification) and, inside a repository, its relationship to the repository. Choose the depth and the mode, `NEW` or `DELTA`. *Checkpoint: every material item has a type and a destination section, and for a DEEP source the inventory exists as a list you can count.*
-4. **Draft** the handoff from the inventory, using Sections, Statement ids and Writing. *Checkpoint: every inventory item is in the draft, and every statement carries its id.*
+4. **Draft** the evidence from the inventory, using Sections, Statement ids and Writing. *Checkpoint: every inventory item is in the draft, and every statement carries its id.*
 5. **Run the two checks**, the loss comparison and the repetition pass under Before writing. *Checkpoint: Check A and Check B both pass, no red flag is left, no statement appears twice, and the loss rating is settled.*
-6. **Write the file.** Read [`FILE.md`](FILE.md) and follow it for the spec, the path, the header and the write. With `--inline`, or outside a repository with no path given, print the handoff in chat instead, as `FILE.md` describes. When the target spec is unknown, the reply is the one question `FILE.md` gives, and the run resumes at this step with the answer. *Checkpoint: exactly one new file exists at a path that did not exist before, or nothing was written.*
-7. **Return the receipt** from `FILE.md` and stop. The reply opens on the line `HANDOFF`. *Checkpoint: the first line of chat is `HANDOFF`, and chat holds the receipt and nothing else.*
+6. **Choose the destination.** Read [`FILE.md`](FILE.md) and take its first rule that fits. When `FILE.md` asks its one question, for a spec matched by subject alone or an unknown spec, that question is the reply, and the run resumes at this step with the answer. *Checkpoint: the destination and the `Spec` value are settled.*
+7. **Derive the execution parts.** When `Spec` is `none` and the invocation does not carry `--evidence-only`, read [`EXECUTION.md`](EXECUTION.md) and follow its steps. Its review with the user is the one other pause in a run, and it ends with the contract approved or left a candidate. *Checkpoint: Parts A to C are drafted and the contract's state is settled, or they do not apply.*
+8. **Write the file** as `FILE.md` describes: store the images, check the draft with the script, then write it once. With `--inline`, or outside a repository with no path given, print the handoff in chat instead. *Checkpoint: the check script prints no problem, and exactly one new handoff file exists at a path that did not exist before, plus its assets folder when images were stored, or nothing was written.*
+9. **Return the receipt** from `FILE.md` and stop. The reply opens on the line `HANDOFF`. *Checkpoint: the first line of the final reply is `HANDOFF`, and it holds the receipt and nothing else.*
 
 ## Classification
 
@@ -112,7 +119,7 @@ Four kinds of material have their own rule:
 - **Implementation detail.** Detail the source or the repository supplies is kept and labelled as evidence: "availability is checked through endpoint X", "the importer caps names at 64 characters", "the CSV flow is upload, validate, enqueue, process", "the source recommends replacing the current crawler with Crawl4AI". File edits, ticket decomposition, a dependency graph, test mechanics and worker or worktree choices appear only when the source itself supplied them, labelled `SOURCE RECOMMENDATION` or `EXISTING PLAN`.
 - **Testing and QA.** Every expectation the source supplies goes under `## Testing / QA / proof expectations` in the source's terms, each item whole where it stands, with its exact strings, values and thresholds even when another section states them: manual QA, test cases, sample data, contract checks, live endpoint checks, browser checks, performance and security checks, acceptance examples, known regressions. "Run first against 15 to 20 products" and "classify each mismatch into five failure buckets" are kept as stated. The section is evidence. Converting it into unit, integration or browser tests is the receiver's work, and the mechanics are PStack's.
 - **Acceptance.** Explicit acceptance conditions are kept exact in meaning under `## Source acceptance / expectations`, item by item, opened by the status the source gives the list. An item that checks a proposal is labelled proposed. Which ones become canonical acceptance is the receiver's decision.
-- **Roadmap and sequence.** A source with 13 phases and 17 steps yields 13 phase subsections and 17 numbered steps, in the source's order and numbering, under the source's own names. "Roadmap: build tab by tab" is a collapse. State the roadmap's status once at the top of its section: who wrote it, and whether the source shows it approved, shows it unapproved, or does not say.
+- **Roadmap and sequence.** A source with 13 phases and 17 steps yields 13 phase subsections and 17 numbered steps, in the source's order and numbering, under the source's own names. "Roadmap: build tab by tab" is a collapse. Each phase and step keeps its own values, such as limits, names and counts, even when another statement already holds them: a citation can sit beside them and never replaces them. State the roadmap's status once at the top of its section: who wrote it, and whether the source shows it approved, shows it unapproved, or does not say.
 
 ## Depth
 
@@ -134,7 +141,7 @@ When the source delegates its own content to material you were not given ("the f
 
 ## Sections
 
-The title is `# Handoff: <concise name>`, followed by the header from `FILE.md`. The sections below are the vocabulary, in default order, with these exact headings. Sections are dynamic: include one only when the source gives it content, and add, split or nest where the material needs it.
+The title is `# Handoff: <concise name>`, followed by the header from `FILE.md`. When the file has execution parts, they come first, as `# Part A: Execution contract`, `# Part B: Specification` and `# Part C: Tickets`, and the evidence follows under `# Part D: Evidence`. An evidence-only file has no part headings. The sections below are the evidence's vocabulary, in default order, with these exact headings. Sections are dynamic: include one only when the source gives it content, and add, split or nest where the material needs it.
 
 1. `## Executive context`. Why this handoff exists, what changed, what the receiver needs to understand first, in a few lines that the later sections do not repeat. For a DEEP source, and for any handoff inside a repository.
 2. `## Repository status quo`. Inside a repository only, as `REPOSITORY.md` defines it.
@@ -156,18 +163,21 @@ The title is `# Handoff: <concise name>`, followed by the header from `FILE.md`.
 18. `## Open questions`. Every unresolved item in one place, grouped by surface for a deep source.
 19. `## Out of scope`. Only what the source excludes.
 20. `## Future / non-V1 direction`. Kept apart from current scope.
-21. `## Source provenance`. One line per source: authority class, name, type, date, path or link, hash where one exists, and what the source contributed. Inside a repository, or with more than one source.
-22. `## Explicitly not asserted`. Assumptions a reader would likely make that the source does not support: an approval nobody gave, a scope nobody set, a cause nobody established. Include it when a wrong assumption would change what the receiver builds or decides, with at most the three that matter most, one line each, and only gaps the body has not already stated. Information nobody raised (a launch date, an owner) is absent, and absence needs no entry. A clear source needs no section.
+21. `## Images`. One entry per image, under `SOURCES.md`. When the source has images.
+22. `## Source provenance`. One line per source: authority class, name, type, date, path or link, hash where one exists, and what the source contributed. Inside a repository, or with more than one source.
+23. `## Explicitly not asserted`. Assumptions a reader would likely make that the source does not support: an approval nobody gave, a scope nobody set, a cause nobody established. Include it when a wrong assumption would change what the receiver builds or decides, with at most the three that matter most, one line each, and only gaps the body has not already stated. Information nobody raised (a launch date, an owner) is absent, and absence needs no entry. A clear source needs no section.
+24. `## Decisions made in this run`. The user's answers from the review in `EXECUTION.md`, each quoted and attributed to the user in this invocation. Only when the review ran.
 
 ## Statement ids
 
-Every statement in the body is a list item that opens with its id: `- S1. The refund window is 14 days from delivery.` In a numbered list the source's number stays the marker: `3. S14. Phase 3: height and weight limits.` A section's one-line status, such as who wrote a roadmap and whether it is approved, is the section's first item.
+Every statement in the evidence is a list item that opens with its id: `- S1. The refund window is 14 days from delivery.` In a numbered list the source's number stays the marker: `3. S14. Phase 3: height and weight limits.` A section's one-line status, such as who wrote a roadmap and whether it is approved, is the section's first item.
 
 - Number from `S1` in the order the statements appear, across all sections, with no gap and no repeat.
 - Sub-items, code blocks and quotes under an item belong to its statement and carry no id of their own.
 - Source provenance lists sources, not statements, and carries no ids. A table puts the id in its first column.
+- Images carry E-ids, `E1` onward, under `SOURCES.md`. Tickets carry T-ids, `T01` onward, under `EXECUTION.md`. Parts A to C cite S-ids and E-ids and define none.
 
-The ids are permanent. Other documents cite a statement as `<Handoff id>-S<n>`, for example `H004-S3`, and the file is never edited, so a citation always finds its statement.
+The ids are permanent. Other documents cite a statement as `<Handoff id>-S<n>`, for example `H004-S3`, and a ticket as `H004-T02`. The file is never edited, so a citation always finds its target.
 
 ## Delta handoffs
 
@@ -195,7 +205,7 @@ Each entry cites the earlier statement it concerns by its full id, as in `Change
 - **Now approved**: only when the source shows someone with the say approving, withdrawing or replacing the earlier position. Chronology is not authority, so a newer message alone is a conflict.
 - **Still unresolved**: the earlier open questions and conflicts the new source leaves open.
 
-The new file is still self-contained: restate from the earlier handoff what the receiver needs to read this one alone, and no more. The earlier file is never edited, renamed or deleted. A delta is a new file beside it.
+The new file is still self-contained: restate from the earlier handoff what the receiver needs to read this one alone, and no more. A delta with execution parts maps the earlier tickets as `EXECUTION.md` describes. The earlier file and its assets folder are never edited, renamed or deleted. A delta is a new file beside it.
 
 ## Writing
 
@@ -213,7 +223,7 @@ Tell the user in one line of chat, beside the receipt, that the source contained
 
 ## Boundary
 
-These belong to the receiver, and appear in a handoff only when quoted from the source or labelled `SOURCE RECOMMENDATION` or `EXISTING PLAN`:
+These belong to the receiver, and appear in the evidence only when quoted from the source or labelled `SOURCE RECOMMENDATION` or `EXISTING PLAN`:
 
 - creating or editing a spec or planning document: `PRD.md`, `journeys.md`, `DESIGN.md`, `ERD.md`, or the older `PRODUCT.md`, `TECH.md` and `EXECUTION.md`;
 - the ids `D<n>`, `DQ<n>`, `M<n>` and `M<n>-T<k>`, and `READY`, `BLOCKED` or `DONE` as states;
@@ -222,7 +232,9 @@ These belong to the receiver, and appear in a handoff only when quoted from the 
 - a test plan or file edits the source did not supply;
 - which source wins, and whether what the repository does today is right.
 
-Carrying the source's own roadmap, sequence or recommendations is packaging: they stay the source's, in its words and numbering, under headings that say so. If the user asks for any of the above inside `/handoff`, produce the handoff alone. The rest is the receiver's.
+Carrying the source's own roadmap, sequence or recommendations is packaging: they stay the source's, in its words and numbering, under headings that say so.
+
+Parts A to C carry tickets, their `READY` and `BLOCKED` states and their order, under `EXECUTION.md`, derived from the evidence. Spec documents, the ids `D<n>`, `DQ<n>` and `M<n>`, a PStack playbook, a model, a worker, a worktree and file edits stay with the receiver in every part.
 
 ## Before writing
 
@@ -230,7 +242,7 @@ Run both checks on the draft. The handoff passes only when both pass.
 
 **Check A: receiving-agent sufficiency.** "If the receiving session had only this handoff and the repository, what material thing would it still have to recover from the original source?" Walk the receiver's questions: the status quo, what already exists, what changed, the objective, requirements, approved decisions, constraints, surfaces, technical and data detail, testing and QA expectations, dependencies, owners, blockers, proposals, conflicts, open questions, future and out-of-scope boundaries, provenance. Wherever an answer needs the source, expand the handoff.
 
-**Check B: authority overreach.** "Did I decide anything the receiver should reconcile?" Look for a proposal turned into a decision, a conflict silently resolved, a source roadmap renamed into milestones, an implementation suggestion turned into a requirement, a test the source never stated, readiness implied, an engineering route selected. Downgrade each back to evidence.
+**Check B: authority overreach.** "Did I decide anything the receiver should reconcile?" Look for a proposal turned into a decision, a conflict silently resolved, a source roadmap renamed into milestones, an implementation suggestion turned into a requirement, a test the source never stated, readiness implied, an engineering route selected. Downgrade each back to evidence. Check B reads the evidence: the execution parts derive from it under the rules in `EXECUTION.md`.
 
 **Material information loss.** For a DEEP source, compare the draft against the step 3 inventory item by item. Allowed loss is duplicate wording, repetition and filler. A missing requirement, decision, constraint, roadmap phase, testing expectation, dependency, open question, technical contract, implementation recommendation or future boundary goes back in. For SMALL and STANDARD, walk the source section by section the same way. Rate the result `NONE`, `LOW: <what>` or `HIGH: <what>` and expand until it is `NONE`. `LOW` and `HIGH` remain only for loss you cannot repair, such as a source that was cut off or withheld.
 
@@ -240,7 +252,7 @@ Run both checks on the draft. The handoff passes only when both pass.
 
 ### Red flags
 
-Any of these in the draft fails it, unless the words are quoted from the source or labelled as source material:
+Any of these in the evidence fails it, unless the words are quoted from the source or labelled as source material:
 
 - "see source for details", or any pointer standing where content should be;
 - "probably", "we should", "therefore the implementation will";
@@ -258,7 +270,9 @@ Any of these in the draft fails it, unless the words are quoted from the source 
 | "The code already behaves this way, so it must be the requirement." | Implementation is evidence, not product authority. |
 | "This implementation approach is obviously best." | Preserve it as a recommendation unless the source shows it approved. |
 | "The receiver will figure out the testing details later." | Preserve every testing and QA expectation the source supplies. |
-| "To make this useful, I should create tickets." | Tickets and readiness belong to the receiver. |
+| "To make this useful, I should put tickets in the evidence." | The evidence records. Tickets go in Part C, derived from it and cited to it, and only when no spec matches. |
+| "The ticket is READY if I settle this open question the obvious way." | An open decision holds every ticket it could change. The user settles it in the review, or the ticket stays BLOCKED. |
+| "The screenshot is stored, so the receiver can look at it." | The receiver may never open it. Every material value the image shows goes into a statement. |
 | "The receipt should tell the user what is in the file." | The receipt is the fixed lines in `FILE.md`. The content is in the file. |
 | "Nobody watches the file being written, so a shorter one will do." | Depth follows the source's material. The reader of the file has nothing else. |
 | "The source is self-explanatory, so the repository pass can be skipped." | Without the pass, existing behavior gets written as new work and conflicts go unseen. |
@@ -273,9 +287,12 @@ Any of these in the draft fails it, unless the words are quoted from the source 
 The run is finished when all of these hold:
 
 - Every supplied source was read in full, and inside a repository the pass reached its done condition.
-- Check A and Check B pass, and no red flag remains.
+- Check A and Check B pass, and no red flag remains in the evidence.
+- `node scripts/check-handoff.mjs` prints no problem for the file, or for the draft in inline mode.
+- Every material image is stored with a matching hash, or its Images entry says why it is not.
+- When the execution parts apply, the header records the contract as approved with the user's words, or as a candidate.
 - Material information loss is `NONE`, or the header states what was lost and `Evidence complete` is `NO`.
 - Every statement carries its id, `S1` to `Sn` in order.
 - Every secret value is absent and what it stood for is still listed.
-- By default inside a repository: exactly one new file exists, at a path that did not exist before, no other file changed, and branch, index, stashes and remotes are as found. With `--inline`, or outside a repository with no path given: nothing was written.
-- Chat holds the receipt, or the inline handoff, plus at most the one-line secret notice.
+- By default inside a repository: exactly one new handoff file exists, at a path that did not exist before, plus its `<Handoff id>-assets/` folder when images were stored. No other file changed, and branch, index, stashes and remotes are as found. With `--inline`, or outside a repository with no path given: nothing was written.
+- The final reply holds the receipt, or the inline handoff, plus at most the one-line secret notice. The review in `EXECUTION.md` happens in the replies before it.

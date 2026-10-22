@@ -30,9 +30,15 @@
 // chat reply. A case that carries { "writes": "<path>" } names its own file. The checks
 // under "outside" apply to a case with no repository. A case that writes no
 // file is also held to the inline form: the reply opens on the title and no
-// receipt follows. A case that carries { "asks": [<ids>] } expects the run to
-// ask which spec the source belongs to before writing anything, so only its
-// own checks apply.
+// receipt follows. A case that carries { "asks": [<words>] } expects the run to
+// ask where the handoff goes before writing anything, naming each word, so
+// only its own checks apply.
+//
+// A case runs as `/handoff <flags> <source>`. Its flags come from a
+// { "flags": "..." } entry in checks.json, and default to `--evidence-only`, so
+// the cases written before the execution parts keep testing the evidence alone.
+// A case with execution parts passes `--candidate`: `claude -p` cannot answer
+// the review, so the contract is written unapproved.
 //
 // A case that cannot run is skipped, counted apart from the passes, and makes
 // the run fail.
@@ -51,13 +57,14 @@ const outDir = process.env.HANDOFF_OUT || mkdtempSync(join(tmpdir(), 'handoff-ou
 const only = process.argv.slice(2)
 
 function run(name, source, own) {
+  const flags = own.find((c) => c.flags !== undefined)?.flags ?? '--evidence-only'
   const p = project(name)
   const before = p.inRepo ? gitState(p.cwd) : null
   const had = new Set(files(p.cwd))
   const specs = p.inRepo ? specsOf(p.cwd) : []
   link(p.cwd, 'handoff', skill)
   const start = Date.now()
-  const out = claude(p.cwd, `/handoff ${source}`)
+  const out = claude(p.cwd, `/handoff ${flags} ${source}`)
   const end = Date.now()
   const written = files(p.cwd).filter((f) => !had.has(f))
   const after = p.inRepo ? gitState(p.cwd) : null

@@ -15,6 +15,9 @@ Sources: 1 (1 pasted)
 Source hashes: pasted text, not hashed
 Material information loss: NONE
 Evidence complete: YES
+Contract: none
+Execution ready: none
+Assets: none
 
 ## Executive context
 

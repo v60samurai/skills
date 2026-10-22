@@ -1,5 +1,7 @@
 // Static red flags in a handoff, its statement ids, and the two paths a
-// handoff file may take. No model runs here. A finding means the handoff
+// handoff file may take. Parts A to C of a handoff carry tickets and their
+// states by design, so the rules about tickets, states and planning headings
+// read the evidence only; every other rule reads the whole file. No model runs here. A finding means the handoff
 // carries planning that belongs to its receiver or to PStack, points at the
 // source in place of content, or holds a credential.
 //
@@ -39,6 +41,26 @@ export const RULES = [
   { id: 'worktree', why: 'worktree strategy', re: /\bworktrees?\b/i },
 ]
 
+import { parts } from '../../skills/handoff/scripts/check-handoff.mjs'
+// Rules Parts A to C are exempt from: they hold tickets, READY and BLOCKED, and a Tickets heading.
+const EXECUTION_OK = new Set(['ready-ticket', 'state', 'planning-heading'])
+// Repository status quo reports what the repository holds, so an id it quotes from there,
+// such as a decision `D08` in the repository's own docs, is not one the handoff made up.
+const REPOSITORY_OK = new Set(['ticket-id', 'milestone-id', 'decision-id', 'decision-queue-id'])
+
+// Line numbers inside the `## Repository status quo` section.
+function statusQuoLines(text) {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n')
+  const inside = new Set()
+  let on = false
+  lines.forEach((l, i) => {
+    const h = /^(#{1,6})\s+(.*)$/.exec(l)
+    if (h && h[1].length <= 2) on = h[1].length === 2 && /^repository status quo\b/i.test(h[2].trim())
+    else if (on) inside.add(i + 1)
+  })
+  return inside
+}
+
 const isList = (l) => /^\s*([-*+]|\d+[.)])\s/.test(l) || /^\s{2,}\S/.test(l)
 
 // Lines with quoted and labelled text blanked out, numbered from 1.
@@ -68,8 +90,12 @@ export function visible(text) {
 
 export function lintHandoff(text) {
   const findings = []
+  const p = parts(text)
+  const execution = new Set(['A', 'B', 'C'].flatMap((k) => (p.ranges[k] ? p.lines.slice(...p.ranges[k]).map((l) => l.n) : [])))
+  const statusQuo = statusQuoLines(text)
+  const exempt = (n, id) => (execution.has(n) && EXECUTION_OK.has(id)) || (statusQuo.has(n) && REPOSITORY_OK.has(id))
   for (const line of visible(text)) {
-    for (const rule of RULES) if (rule.re.test(line.text)) findings.push({ rule: rule.id, why: rule.why, line: line.n, text: line.raw.trim() })
+    for (const rule of RULES) if (!exempt(line.n, rule.id) && rule.re.test(line.text)) findings.push({ rule: rule.id, why: rule.why, line: line.n, text: line.raw.trim() })
     const named = NAMED_SECRET.exec(line.raw)
     if (SECRET.test(line.raw) || (named && looksRandom(named[2]))) findings.push({ rule: 'credential', why: 'credential shape', line: line.n, text: '[withheld]' })
   }
@@ -105,27 +131,5 @@ export function nextHandoffNumber({ handoffFiles = [], workingFiles = [], cited 
   return Math.max(0, ...files, ...notes, ...ids) + 1
 }
 
-// Statement ids. Every top-level list item in the body opens with `S<n>.`,
-// numbered from S1 in order with no gap or repeat: `- S4. text`, or
-// `3. S12. text` in a numbered list. Source provenance lists sources, not
-// statements, and is left out, as are code blocks, quotes and tables.
-// Problems as sentences; an empty list means the ids conform.
-export function checkStatementIds(text) {
-  const lines = String(text).replace(/\r\n?/g, '\n').split('\n')
-  const bad = [], ids = []
-  let fence = false, body = false, skip = false
-  lines.forEach((raw, i) => {
-    if (/^\s*(```|~~~)/.test(raw)) { fence = !fence; return }
-    if (fence) return
-    const h = /^(#{1,6})\s+(.*)/.exec(raw)
-    if (h) { if (h[1].length === 2) { body = true; skip = /provenance/i.test(h[2]) } return }
-    const item = /^(?:[-*+]|\d+[.)])\s+(.*)$/.exec(raw)
-    if (!body || skip || !item) return
-    const id = /^S(\d+)\.\s/.exec(item[1])
-    if (id) ids.push({ n: Number(id[1]), line: i + 1 })
-    else bad.push(`line ${i + 1} is a statement with no \`S<n>.\` id: ${raw.trim().slice(0, 60)}`)
-  })
-  if (!ids.length) bad.unshift('no statement carries an `S<n>.` id')
-  ids.forEach(({ n, line }, k) => { if (n !== k + 1) bad.push(`line ${line} is S${n}, expected S${k + 1}`) })
-  return bad
-}
+// Statement ids live in the skill's own check script, which step 8 runs.
+export { checkStatementIds } from '../../skills/handoff/scripts/check-handoff.mjs'

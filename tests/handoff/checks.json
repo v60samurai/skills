@@ -1,6 +1,6 @@
 {
   "all": [
-    { "absent": "^#+ .*(tickets?|milestones?|implementation plan|execution plan|next steps|action items|recommendations?)\\b", "why": "no planning sections" },
+    { "evidenceAbsent": "^#+ .*(tickets?|milestones?|implementation plan|execution plan|next steps|action items|recommendations?)\\b", "why": "no planning sections in the evidence" },
     { "absent": "\\bDQ-?\\d+", "why": "no decision-queue ids" },
     { "has": "^# Handoff", "why": "handoff title" },
     { "statements": true, "why": "every statement carries a permanent id, S1 to Sn, in order" }
@@ -12,7 +12,8 @@
     { "path": {}, "why": "the file is at specs/<id>/handoffs/H<nnn>-<YYYY-MM-DD>-<slug>.md or handoffs/<YYYYMMDD-HHMMSS>-<slug>.md" },
     { "git": "one-new-file", "why": "HEAD, branch, index, tracked files and stash unchanged, and exactly one new untracked file at an allowed path" },
     { "header": {}, "why": "every label once and in order, values from this run" },
-    { "lint": true, "why": "no red flag and no planning that belongs to the receiver or PStack" },
+    { "lint": true, "why": "no red flag in the evidence, and no planning that belongs to the receiver or PStack" },
+    { "execution": true, "why": "the check script passes: parts, ids, citations, tickets, readiness and assets" },
     { "receipt": {}, "why": "chat holds the receipt and nothing else" }
   ],
   "01-repetitive-meeting": [
@@ -534,5 +535,97 @@
     { "inSection": ["open question|propos|not yet approved", "CSV"] },
     { "inSection": ["open question", "refresh|5 minutes|late"], "why": "the late booking question stays open" },
     { "inSection": ["testing", "180"], "why": "the trial sailing is a testing expectation" }
+  ],
+  "34-one-ticket": [
+    { "flags": "--candidate", "why": "claude -p cannot answer the review, so the contract is written as a candidate" },
+    { "path": { "kind": "intake" }, "why": "no spec in the repository, so the intake directory" },
+    { "header": { "spec": "none", "mode": "NEW" } },
+    { "contract": "candidate", "why": "no review ran, so the contract is unapproved" },
+    { "has": "^# Part A: Execution contract\\s*$" },
+    { "has": "^# Part C: Tickets\\s*$" },
+    { "has": "^# Part D: Evidence\\s*$" },
+    { "minCount": ["^### T\\d+:", 1] },
+    { "maxCount": ["^### T\\d+:", 2], "why": "a one-line change is one ticket, two at most" },
+    { "has": "^Status: READY\\s*$", "why": "the decision is Maya's and approved, so nothing holds the ticket" },
+    { "has": "25" }
+  ],
+  "35-dependent-slices": [
+    { "flags": "--candidate", "why": "claude -p cannot answer the review, so the contract is written as a candidate" },
+    { "path": { "kind": "intake" }, "why": "no spec in the repository, so the intake directory" },
+    { "header": { "spec": "none", "mode": "NEW" } },
+    { "contract": "candidate", "why": "no review ran, so the contract is unapproved" },
+    { "has": "^# Part A: Execution contract\\s*$" },
+    { "has": "^# Part C: Tickets\\s*$" },
+    { "has": "^# Part D: Evidence\\s*$" },
+    { "minCount": ["^### T\\d+:", 3], "why": "page size, CSV export and the refunds page are separate slices" },
+    { "has": "^Status: BLOCKED: S\\d+", "why": "the open email question holds the CSV ticket" },
+    { "inSection": ["open decisions", "email"] },
+    { "absent": "^### T\\d+: .*bulk", "why": "bulk actions are a proposal Maya deferred, not a ticket" },
+    { "has": "Download CSV" },
+    { "has": "requested" },
+    { "has": "ordersRepository", "why": "the repository pass still runs" }
+  ],
+  "36-meeting-with-screenshots": [
+    { "flags": "--candidate", "why": "claude -p cannot answer the review, so the contract is written as a candidate" },
+    { "path": { "kind": "intake" }, "why": "no spec in the repository, so the intake directory" },
+    { "header": { "spec": "none", "mode": "NEW" } },
+    { "contract": "candidate", "why": "no review ran, so the contract is unapproved" },
+    { "has": "^# Part A: Execution contract\\s*$" },
+    { "has": "^# Part C: Tickets\\s*$" },
+    { "has": "^# Part D: Evidence\\s*$" },
+    { "has": "^## Images\\s*$" },
+    { "minCount": ["^- E\\d+\\.", 2], "why": "both screenshots get an Images entry" },
+    { "has": "^Assets: 2 stored\\s*$", "why": "both screenshots are copied into the assets folder" },
+    { "has": "choose a new one", "why": "the approved subject is read from the first screenshot into a statement" },
+    { "has": "hd\\.link|78 ?/ ?160", "why": "the SMS draft's text or length is read from the second screenshot" },
+    { "has": "160" },
+    { "inSection": ["open decisions", "route"], "why": "Marco's unanswered question stays open" },
+    { "has": "Granola summary", "why": "what comes only from the summary is attributed to it" }
+  ],
+  "37-unresolved-choice": [
+    { "flags": "--candidate", "why": "claude -p cannot answer the review, so the contract is written as a candidate" },
+    { "path": { "kind": "intake" }, "why": "no spec in the repository, so the intake directory" },
+    { "header": { "spec": "none", "mode": "NEW" } },
+    { "contract": "candidate", "why": "no review ran, so the contract is unapproved" },
+    { "has": "^# Part A: Execution contract\\s*$" },
+    { "has": "^# Part C: Tickets\\s*$" },
+    { "has": "^# Part D: Evidence\\s*$" },
+    { "has": "^Status: BLOCKED: S\\d+", "why": "the 48 or 72 hour disagreement holds the window ticket" },
+    { "inSection": ["open decisions", "72"] },
+    { "has": "^Execution ready: (NO|PARTIAL: .*)\\s*$" },
+    { "has": "local time", "why": "the agreed deadline wording is a READY ticket's subject" },
+    { "notInSection": ["approved decision", "72 hours"], "why": "neither side of the disagreement is promoted" }
+  ],
+  "38-delta-tickets": [
+    { "flags": "--candidate", "why": "claude -p cannot answer the review, so the contract is written as a candidate" },
+    { "path": { "kind": "intake" }, "why": "no spec in the repository, so the intake directory" },
+    { "header": { "spec": "none", "mode": "DELTA", "previous": "^handoffs/20261020-090000-orders-admin" } },
+    { "contract": "candidate", "why": "no review ran, so the contract is unapproved" },
+    { "has": "^# Part A: Execution contract\\s*$" },
+    { "has": "^# Part C: Tickets\\s*$" },
+    { "has": "^# Part D: Evidence\\s*$" },
+    { "has": "^## Relationship to previous handoff\\s*$" },
+    { "has": "20261020-090000-orders-admin-T01", "why": "each earlier ticket is mapped by its full id" },
+    { "has": "done in the repository", "why": "page size 25 is merged, so the earlier T01 is done" },
+    { "has": "email" },
+    { "absent": "^### T\\d+: .*bulk" }
+  ],
+  "39-missing-image": [
+    { "flags": "--candidate", "why": "claude -p cannot answer the review, so the contract is written as a candidate" },
+    { "path": { "kind": "intake" }, "why": "no spec in the repository, so the intake directory" },
+    { "header": { "spec": "none", "mode": "NEW" } },
+    { "contract": "candidate", "why": "no review ran, so the contract is unapproved" },
+    { "has": "^# Part A: Execution contract\\s*$" },
+    { "has": "^# Part C: Tickets\\s*$" },
+    { "has": "^# Part D: Evidence\\s*$" },
+    { "has": "^Evidence complete: NO: .+", "why": "the approved wording is only in a screenshot that does not exist" },
+    { "has": "^## Missing source material\\s*$" },
+    { "has": "banner-approved" },
+    { "has": "^Assets: (none|1 not stored)\\s*$", "why": "there is no image to store" }
+  ],
+  "40-spec-by-subject": [
+    { "flags": "--candidate" },
+    { "asks": ["disruption-rebooking", "ticket"], "why": "the note is about rebooking offers, the one spec's own subject, but neither the user nor the note names the spec, so the run asks whether to file it into the spec as evidence or write tickets outside it, and writes nothing yet" },
+    { "git": "unchanged", "why": "nothing is written before the answer" }
   ]
 }

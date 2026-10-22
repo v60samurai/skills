@@ -5,7 +5,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { parseHeader, checkHeader, checkDestination, specValue, LABELS, BANNER } from './header.mjs'
+import { parseHeader, checkHeader, checkDestination, specValue, LABELS, BANNER, NEWER } from './header.mjs'
+import { checkHandoff, tickets, images } from '../../skills/handoff/scripts/check-handoff.mjs'
 import { lintHandoff, classifyPath, nextHandoffNumber, checkStatementIds, RULES } from './lint.mjs'
 import { inventory, keeps, sections, within, statements, repeats } from './inventory.mjs'
 import { apply, checkReceipt, checkInline, checkPath, bodyOf, TYPES } from './checks.mjs'
@@ -220,6 +221,13 @@ test('lint: every red flag is flagged in plain text and left alone when quoted o
     assert.ok(rules(`### EXISTING PLAN\n\nkept\n\n## Requirements\n\n${line}`).includes(rule), `the label ends with its section: ${line}`)
   }
   assert.deepEqual(rules('The source says we should hold capacity.'), [])
+})
+
+test('lint: an id quoted from the repository is left alone in Repository status quo, and nowhere else', () => {
+  const line = '- S11. Field 17 fails on a homepage (`docs/fields.md`, D08 to D10, M2-T4, DQ3).'
+  assert.deepEqual(lintHandoff(`## Repository status quo\n\n${line}\n\n### Field 18\n\n${line}\n`), [])
+  const after = rules(`## Repository status quo\n\n- S1. Kept.\n\n## Approved decisions\n\n${line}\n`)
+  for (const rule of ['decision-id', 'ticket-id', 'decision-queue-id']) assert.ok(after.includes(rule), `${rule} after the section ends -> ${after}`)
 })
 
 test('lint: ordinary handoff text is not flagged', () => {
@@ -451,8 +459,9 @@ test('repetition: apply counts repeats in the body against the allowance', () =>
 
 // --- receipt --------------------------------------------------------------------------------------------------------
 
-const receipt = (path, { depth = 'DEEP', baseline = '8f2c41d', mode = 'NEW', loss = 'NONE', ready = 'YES', label = 'Evidence complete' } = {}) =>
-  ['HANDOFF', `\`${path}\``, '', `Depth: ${depth}`, `Baseline: ${baseline}`, `Mode: ${mode}`, `Material information loss: ${loss}`, '', `${label}: ${ready}`].join('\n')
+const receipt = (path, { depth = 'DEEP', baseline = '8f2c41d', mode = 'NEW', loss = 'NONE', ready = 'YES', label = 'Evidence complete', contract = 'none', execution = 'none', assets = 'none' } = {}) =>
+  ['HANDOFF', `\`${path}\``, '', `Depth: ${depth}`, `Baseline: ${baseline}`, `Mode: ${mode}`, `Material information loss: ${loss}`,
+    ...(contract === null ? [] : [`Contract: ${contract}`, `Execution ready: ${execution}`, `Assets: ${assets}`]), '', `${label}: ${ready}`].join('\n')
 
 test('receipt: the contract form passes, and ends on the verdict', () => {
   assert.deepEqual(checkReceipt(receipt(GOOD_PATH), { path: GOOD_PATH, doc: good }), [])
@@ -506,17 +515,19 @@ test('checks.json: every case has checks, and every check is one known type with
       if (c.path) assert.deepEqual(Object.keys(c.path).filter((k) => !['kind', 'spec', 'n'].includes(k)), [], name)
     }
   }
-  assert.deepEqual(checks.file.map((c) => Object.keys(c)[0]), ['path', 'git', 'header', 'lint', 'receipt'])
+  assert.deepEqual(checks.file.map((c) => Object.keys(c)[0]), ['path', 'git', 'header', 'lint', 'execution', 'receipt'])
 })
 
 test('checks.json: a case inside a repository is a file case or says it is inline', () => {
   const repoCases = caseNames.filter((n) => existsSync(join(here, 'repos', n)))
-  assert.deepEqual(repoCases.map((n) => n.slice(0, 2)), ['22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33'])
+  assert.deepEqual(repoCases.map((n) => n.slice(0, 2)), ['22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40'])
+  // Cases 34 on test the execution parts, so they run with --candidate; the earlier ones run with the runner's default, --evidence-only.
+  for (const name of repoCases) assert.equal(checks[name].find((c) => c.flags !== undefined)?.flags, Number(name.slice(0, 2)) >= 34 ? '--candidate' : undefined, name)
   for (const name of repoCases) {
     const inline = checks[name].some((c) => c.writes === 'none')
     const asks = checks[name].some((c) => c.asks)
     assert.equal(inline, name === '31-inline-in-repo', name)
-    assert.equal(asks, name === '30-two-specs', name)
+    assert.equal(asks, ['30-two-specs', '40-spec-by-subject'].includes(name), name)
     assert.ok(inline || asks ? checks[name].some((c) => c.git === 'unchanged') : checks[name].some((c) => c.path), name)
     assert.ok(asks || checks[name].some((c) => c.header), name)
   }
@@ -577,12 +588,12 @@ test('apply: a conforming file run passes the default file checks, and each faul
   assert.deepEqual(failing(run(), [...checks.all, ...checks.file, ...own]), [])
   assert.deepEqual(failing(run({ git: { unchanged: false, rest: false, added: [GOOD_PATH] } }), checks.file), ['git'])
   assert.deepEqual(failing(run({ git: { unchanged: false, rest: true, added: [GOOD_PATH, 'notes.md'] } }), checks.file), ['git'])
-  assert.deepEqual(failing(run({ git: { unchanged: false, rest: true, added: ['handoffs/deck-planner.md'] }, handoffPath: undefined, doc: '' }), checks.file), ['path', 'git', 'header', 'receipt'])
+  assert.deepEqual(failing(run({ git: { unchanged: false, rest: true, added: ['handoffs/deck-planner.md'] }, handoffPath: undefined, doc: '' }), checks.file), ['path', 'git', 'header', 'execution', 'receipt'])
   assert.deepEqual(failing(run({ doc: fixture('bad-short-sha') }), checks.file), ['header'])
   assert.deepEqual(failing(run({ doc: fixture('bad-ticket') }), checks.file), ['lint'])
   assert.deepEqual(failing(run({ out: good }), checks.file), ['receipt'])
   assert.deepEqual(failing(run({ doc: fixture('bad-collapsed-roadmap') }), own).sort(), ['inventory', 'sectionMinCount', 'sectionMinCount', 'sectionMinCount'])
-  assert.deepEqual(failing(run({ doc: fixture('bad-build-flow-output') }), [...checks.all, ...checks.outside, ...checks.file]), ['absent', 'absent', 'absent', 'lint'])
+  assert.deepEqual(failing(run({ doc: fixture('bad-build-flow-output') }), [...checks.all, ...checks.outside, ...checks.file]), ['evidenceAbsent', 'absent', 'absent', 'lint'])
   assert.deepEqual(failing(run({ written: [GOOD_PATH] }), [{ writes: 'none' }, { git: 'unchanged' }]), ['writes', 'git'])
   assert.deepEqual(failing(run({ written: [], git: { unchanged: true, rest: true, added: [] }, out: good, handoffPath: undefined, expected: { ...measured, path: undefined } }), [{ writes: 'none' }, { git: 'unchanged' }, { header: { mode: 'NEW' } }, { lint: true }]), [])
   assert.deepEqual(failing(run({ out: good }), [{ inline: true }]), [])
@@ -611,4 +622,99 @@ test('apply: a size check measures the handoff without its header', () => {
   const r = { doc: good, source: 'x'.repeat(bodyOf(good).length), out: '', written: [] }
   assert.equal(apply({ maxRatio: 1 }, r), true)
   assert.equal(apply({ maxChars: bodyOf(good).length - 1 }, r), false)
+})
+
+// --- execution parts and images -------------------------------------------------------------------------------------
+
+const exec = fixture('good-execution')
+const EXEC_PATH = 'handoffs/20261022-101500-refund-export.md'
+const staticDir = join(here, 'static')
+const execProblems = (text, root = staticDir) => checkHandoff(text, { root }).join('\n')
+
+test('execution: the good file passes the script, the header, the statement ids and the lint', () => {
+  assert.deepEqual(checkHandoff(exec, { root: staticDir }), [])
+  assert.deepEqual(checkHeader(exec), [])
+  assert.deepEqual(checkStatementIds(exec), [])
+  assert.deepEqual(lintHandoff(exec), [], 'tickets, READY and BLOCKED are allowed in Parts A to C')
+  assert.deepEqual(tickets(exec).map((t) => [t.label, t.status, t.blockedBy]), [['T01', 'READY', 'none'], ['T02', 'READY', 'T01'], ['T03', 'BLOCKED: S9', 'T01']])
+  assert.deepEqual(images(exec).map((e) => [e.n, e.stored]), [[1, true], [2, false]])
+})
+
+test('execution: each fault is reported by the check that names it', () => {
+  const cases = [
+    [exec.replace(/^How to build from this file\..*$/m, 'Build the tickets.'), /fixed "How to build from this file\." paragraph/],
+    [exec.replace('Out of scope: S12.', 'Out of scope: S12, S99.'), /cites S99, which the evidence does not define/],
+    [exec.replace('Rests on: S7\n', 'Rests on: S7, E9\n'), /cites E9/],
+    [exec.replace('Proof: the refunds page component test reads', 'Proof: see T07, the refunds page component test reads'), /cites T07, which is not a ticket/],
+    [exec.replace('### T02: Disable the export when nothing is visible\nStatus: READY\nBlocked by: T01', '### T02: Disable the export when nothing is visible\nStatus: READY\nBlocked by: T03'), /blocked by T03, which comes after it/],
+    [exec.replace('Blocked by: none', 'Blocked by: T01'), /T01\) is blocked by itself/],
+    [exec.replace('Status: BLOCKED: S9', 'Status: READY'), /holds T03, and T03 is READY[\s\S]*`Execution ready:` is `PARTIAL: T01, T02`, and the tickets say `YES`/],
+    [exec.replace('Status: BLOCKED: S9', 'Status: BLOCKED'), /expected `READY` or `BLOCKED: <S-ids/],
+    [exec.replace('Execution ready: PARTIAL: T01, T02', 'Execution ready: YES'), /`Execution ready:` is `YES`, and the tickets say `PARTIAL: T01, T02`/],
+    [exec.replace('- [ ] With an empty result, the button is disabled and no file downloads.\n', ''), /T02\) has no acceptance criterion/],
+    [exec.replace('Proof: the refunds page component test with an empty fixture.\n', ''), /T02\) has no `Proof:` line/],
+    [exec.replace('Rests on: S7\n', 'Rests on: E1\n'), /T02\) is READY and rests on no statement/],
+    [exec.replace('### T02:', '### T04:'), /is T04, expected T02/],
+    [exec.replace('Out of scope: S12.', 'Out of scope: S12.\n\n- S14. A new requirement.'), /Part A defines `S14\.`/],
+    [exec.replace('- A date range filter on the export (S8), held by an open decision.\n', '').replace('Rests on: S8, S9', 'Rests on: S9'), /S8 \(Requirements\) is cited nowhere in Parts A to C/],
+    [exec.replace('Contract: approved 2026-10-22: "Looks right. Leave the date filter open, build the rest."', 'Contract: none'), /`Contract:` is `none`, and the file has execution parts/],
+    [exec.replace('Contract: approved 2026-10-22: "Looks right. Leave the date filter open, build the rest."', 'Contract: approved'), /`Contract:` is `approved`, expected/],
+    [exec.replace('# Part C: Tickets', '# Part C: Work'), /Part C is headed `Work`, expected `Tickets`/],
+    [exec.replace('Assets: 1 stored, 1 not stored', 'Assets: 2 stored'), /`Assets:` is `2 stored`, and the Images entries say `1 stored, 1 not stored`/],
+    [exec.replace('sha256 `00ce60bd', 'sha256 `11ce60bd'), /\(E1\) hash is 11ce60bd/],
+    [exec.replace('`20261022-101500-refund-export-assets/E1-export-dialog.png`, sha256', '`../E1-export-dialog.png`, sha256'), /path `\.\.\/E1-export-dialog\.png` is not inside `20261022-101500-refund-export-assets\/`/],
+    [exec.replace('`20261022-101500-refund-export-assets/E1-export-dialog.png`, sha256', '`20261022-101500-refund-export-assets/E1-gone.png`, sha256'), /file `20261022-101500-refund-export-assets\/E1-gone\.png` does not exist/],
+    [exec.replace('![E1](20261022-101500-refund-export-assets/E1-export-dialog.png)', '![E1](elsewhere/E1.png)'), /embeds `elsewhere\/E1\.png`, which no stored Images entry names/],
+    [exec.replace('(E1)\n\n## Out of scope', '(E7)\n\n## Out of scope'), /cites E7, which no Images entry defines/],
+  ]
+  for (const [text, want] of cases) assert.match(execProblems(text), want, String(want))
+  assert.match(checkHandoff(exec, { root: null }).join('\n'), /E1\) is stored, and an inline handoff stores nothing/)
+  const moved = exec.replace(/# Part C: Tickets[\s\S]*?(?=# Part D: Evidence)/, '')
+  const partC = /# Part C: Tickets[\s\S]*?(?=# Part D: Evidence)/.exec(exec)[0]
+  assert.match(execProblems(`${moved}\n${partC}`), /the parts are in the order A, B, D, C/)
+})
+
+test('execution: an evidence-only file needs no parts, and says so in its header', () => {
+  assert.deepEqual(checkHandoff(good, { root: staticDir }), [])
+  assert.match(checkHandoff(swap(good, 'Contract', 'candidate'), { root: staticDir }).join('\n'), /`Contract:` is `candidate`, and the file has no execution parts/)
+  assert.match(checkHandoff(good.replace(/^Contract: none\n/m, ''), { root: staticDir }).join('\n'), /the header has no `Contract:` line/)
+})
+
+test('execution: the lint still reads the evidence for tickets and states, and Parts A to C for everything else', () => {
+  assert.deepEqual(rules(exec.replace('- S12. Scheduled or emailed exports.', '- S12. Scheduled exports are BLOCKED.')), ['state'])
+  assert.deepEqual(rules(exec.replace('Proof: the refunds page component test with an empty fixture.', 'Proof: use Opus to write the refunds page component test.')), ['model-choice'])
+  assert.deepEqual(rules(exec.replace('## Objective\n\nSupport', '## Objective\n\nRun the Feature playbook. Support')), ['playbook'])
+})
+
+test('execution: the header takes the three newer labels together, and an older handoff has none of them', () => {
+  assert.deepEqual(parseHeader(exec).order.slice(-3), NEWER)
+  assert.match(checkHeader(exec.replace(/^Assets: .*\n/m, '')).join('\n'), /missing label `Assets:`/)
+  assert.deepEqual(checkHeader(exec.replace(/^Contract: .*\nExecution ready: .*\nAssets: .*\n/m, '')), [], 'an older handoff has none of the three')
+  for (const [label, value] of [['Contract', 'yes'], ['Execution ready', 'PARTIAL'], ['Assets', '2 images']]) assert.match(checkHeader(swap(exec, label, value)).join('\n'), new RegExp(`^\`${label}:\``, 'm'))
+})
+
+test('execution: the receipt repeats the contract, readiness and assets', () => {
+  const r = receipt(EXEC_PATH, { depth: 'STANDARD', contract: 'approved', execution: 'PARTIAL: T01, T02', assets: '1 stored, 1 not stored' })
+  assert.deepEqual(checkReceipt(r, { path: EXEC_PATH, doc: exec }), [])
+  assert.match(checkReceipt(receipt(EXEC_PATH, { depth: 'STANDARD', contract: 'candidate', execution: 'PARTIAL: T01, T02', assets: '1 stored, 1 not stored' }), { path: EXEC_PATH, doc: exec }).join('\n'), /receipt `Contract: candidate` differs/)
+  assert.match(checkReceipt(receipt(EXEC_PATH, { depth: 'STANDARD', contract: null }), { path: EXEC_PATH, doc: exec }).join('\n'), /no `Contract:` line/)
+})
+
+test('execution: a new handoff may bring its assets folder, and nothing else', () => {
+  const run = (added) => apply({ git: 'one-new-file' }, { git: { unchanged: false, rest: true, added } })
+  assert.equal(run([EXEC_PATH, 'handoffs/20261022-101500-refund-export-assets/E1-export-dialog.png']), true)
+  assert.notEqual(run([EXEC_PATH, 'handoffs/other-assets/E1.png']), true)
+  assert.notEqual(run([EXEC_PATH, 'notes.md']), true)
+})
+
+test('execution: the fixture repositories for the execution cases hold what their sources name', () => {
+  const shots = project('36-meeting-with-screenshots')
+  for (const f of ['notes/shot-1-email-preview.png', 'notes/shot-2-sms-preview.png']) assert.ok(existsSync(join(shots.cwd, f)), f)
+  assert.equal(git(shots.cwd, 'status', '--porcelain').trim(), '')
+  const missing = project('39-missing-image')
+  assert.ok(!existsSync(join(missing.cwd, 'notes', 'banner-approved.png')), 'the screenshot the source names does not exist')
+  const delta = project('38-delta-tickets')
+  const earlier = join(delta.cwd, 'handoffs', '20261020-090000-orders-admin.md')
+  assert.deepEqual(checkHandoff(readFileSync(earlier, 'utf8'), { root: join(delta.cwd, 'handoffs') }), [], 'the earlier handoff is valid')
+  assert.match(readFileSync(join(delta.cwd, 'src', 'orders', 'OrdersPage.tsx'), 'utf8'), /PAGE_SIZE = 25/, 'its T01 is done in the repository')
 })

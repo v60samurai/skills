@@ -1,4 +1,4 @@
-// The header of a /handoff file: the title, one fixed line, then fourteen
+// The header of a /handoff file: the title, one fixed line, then seventeen
 // `Label: value` lines, each once and in this order, before the first `##`.
 // No YAML frontmatter and no `---` line, because readers take the text before
 // the first `---` as the header.
@@ -6,7 +6,10 @@ import { SECRET, classifyPath } from './lint.mjs'
 
 export const BANNER = 'Handoff. Evidence, not truth. Compiled by /handoff.'
 export const LABELS = ['Handoff id', 'Created', 'Repository', 'Branch', 'Baseline', 'Working tree', 'Depth', 'Mode', 'Previous handoff',
-  'Spec', 'Sources', 'Source hashes', 'Material information loss', 'Evidence complete']
+  'Spec', 'Sources', 'Source hashes', 'Material information loss', 'Evidence complete', 'Contract', 'Execution ready', 'Assets']
+// The last three labels came with the execution parts. An older handoff has
+// none of them, and a newer one has all three.
+export const NEWER = ['Contract', 'Execution ready', 'Assets']
 // Older handoffs carry these labels in the same slots. A reader accepts either
 // label for its slot, and a file that carries both has the slot twice.
 export const OLDER = { 'Build Flow spec': 'Spec', 'Ready for Build Flow': 'Evidence complete' }
@@ -14,11 +17,11 @@ export const OLDER = { 'Build Flow spec': 'Spec', 'Ready for Build Flow': 'Evide
 const TITLE = /^# Handoff: (\S.*)$/
 const labelOf = (line) => [...LABELS, ...Object.keys(OLDER)].find((l) => line.startsWith(`${l}:`))
 
-// Everything before the first `##` heading, read into fields. A text with no
+// Everything before the first `##` heading or `# Part` heading, read into fields. A text with no
 // `# Handoff:` line has a null title.
 export function parseHeader(text) {
   const lines = String(text).replace(/\r\n?/g, '\n').split('\n')
-  const end = lines.findIndex((l) => /^##\s/.test(l))
+  const end = lines.findIndex((l) => /^##\s/.test(l) || /^# Part [A-D]: /.test(l))
   const head = end === -1 ? lines : lines.slice(0, end)
   const at = head.findIndex((l) => TITLE.test(l))
   const fields = {}, order = [], extra = [], written = {}
@@ -102,6 +105,9 @@ const SHAPES = {
   'Source hashes': (v) => v.split(/;\s*/).every((p) => HASH_PART.test(p.trim())) || 'is `<path> sha256 <64 hex>` entries or `pasted text, not hashed`',
   'Material information loss': (v) => /^(NONE|(LOW|HIGH): \S.*)$/.test(v) || 'is NONE, `LOW: <what>` or `HIGH: <what>`',
   'Evidence complete': (v) => /^(YES|NO: \S.*)$/.test(v) || 'is YES or `NO: <the evidence still missing>`',
+  Contract: (v) => /^(approved \d{4}-\d{2}-\d{2}: ".+"|candidate|none)$/.test(v) || 'is `approved <YYYY-MM-DD>: "<words>"`, `candidate` or `none`',
+  'Execution ready': (v) => /^(YES|NO|none|PARTIAL: T\d+(, T\d+)*)$/.test(v) || 'is YES, NO, none or `PARTIAL: <ticket ids>`',
+  Assets: (v) => /^(none|\d+ stored(, \d+ not stored)?|\d+ not stored)$/.test(v) || 'is none, `<n> stored`, `<n> stored, <m> not stored` or `<m> not stored`',
 }
 
 // Problems with the header, as sentences. An empty list means it conforms.
@@ -116,8 +122,10 @@ export function checkHeader(text, expected = {}) {
   if (h.rule !== null) bad.push(`line ${h.rule} is \`---\` before the first \`##\` heading`)
   if (!h.banner) bad.push(`missing the line \`${BANNER}\``)
   for (const x of h.extra) if (x.text.trim() !== '---') bad.push(`line ${x.line} is not part of the header: ${x.text.trim().slice(0, 60)}`)
+  const older = NEWER.every((l) => !h.fields[l])
   for (const slot of LABELS) {
     const n = h.fields[slot]?.length ?? 0
+    if (n === 0 && older && NEWER.includes(slot)) continue
     const label = named(h, slot)
     if (n === 0) bad.push(`missing label \`${label}:\``)
     else if (n > 1) bad.push(`label \`${label}:\` appears ${n} times`)
