@@ -3,8 +3,10 @@
 //   node --test tests/handoff/
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync, existsSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync, mkdtempSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { execFileSync } from 'node:child_process'
 import { parseHeader, checkHeader, checkDestination, specValue, LABELS, BANNER, NEWER } from './header.mjs'
 import { checkHandoff, tickets, images } from '../../skills/handoff/scripts/check-handoff.mjs'
 import { lintHandoff, classifyPath, nextHandoffNumber, checkStatementIds, RULES } from './lint.mjs'
@@ -717,4 +719,11 @@ test('execution: the fixture repositories for the execution cases hold what thei
   const earlier = join(delta.cwd, 'handoffs', '20261020-090000-orders-admin.md')
   assert.deepEqual(checkHandoff(readFileSync(earlier, 'utf8'), { root: join(delta.cwd, 'handoffs') }), [], 'the earlier handoff is valid')
   assert.match(readFileSync(join(delta.cwd, 'src', 'orders', 'OrdersPage.tsx'), 'utf8'), /PAGE_SIZE = 25/, 'its T01 is done in the repository')
+})
+
+test('check script: runs from a symlinked skill directory, as installed', () => {
+  const link = join(mkdtempSync(join(tmpdir(), 'handoff-skill-')), 'handoff')
+  symlinkSync(join(here, '..', '..', 'skills', 'handoff'), link)
+  const out = execFileSync('node', [join(link, 'scripts', 'check-handoff.mjs'), join(here, 'static', 'good-execution.md'), '--root', join(here, 'static')], { encoding: 'utf8' })
+  assert.match(out, /^ok: /)
 })

@@ -9,7 +9,7 @@
 //
 // --root defaults to the file's own directory. Prints `ok: ...` and exits 0,
 // or prints one problem per line and exits 1.
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, realpathSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { dirname, resolve, isAbsolute, normalize, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -276,7 +276,8 @@ export function checkHandoff(text, { root } = {}) {
   return [...checkStatementIds(text), ...checkExecution(text), ...checkAssets(text, root === undefined ? null : root)]
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// The skill is usually installed as a symlink, so compare real paths.
+if (process.argv[1] && realpathSync(resolve(process.argv[1])) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2)
   const file = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--root')
   if (!file) { console.error('usage: check-handoff.mjs <handoff.md> [--root <directory>]'); process.exit(2) }
